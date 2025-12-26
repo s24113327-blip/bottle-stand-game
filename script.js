@@ -28,17 +28,22 @@ const gameState = {
 };
 
 function init() {
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width === 0) return;
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    // Correctly scale canvas for desktop
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    
+    // Position bottle relative to current screen width
     gameState.originalBaseX = canvas.width / 2 - 80;
     gameState.bottleBaseX = gameState.originalBaseX;
     gameState.bottleBaseY = canvas.height * 0.85;
     gameState.ropeAnchorX = canvas.width / 2;
+    
     document.getElementById("bestScore").textContent = gameState.bestScore;
     updateRingPosition();
 }
+
+// Auto-adjust when desktop window is resized
+window.onresize = init;
 
 function updateRingPosition() {
     const totalLength = 170; 
@@ -46,15 +51,15 @@ function updateRingPosition() {
     gameState.ringY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * totalLength;
 }
 
-function createConfetti() {
-    for(let i=0; i<30; i++) {
+function createVictoryConfetti() {
+    for(let i=0; i<40; i++) {
         gameState.confetti.push({
             x: gameState.bottleBaseX + 70,
-            y: gameState.bottleBaseY - 50,
-            vx: (Math.random() - 0.5) * 10,
-            vy: -Math.random() * 10 - 5,
+            y: gameState.bottleBaseY - 60,
+            vx: (Math.random() - 0.5) * 15,
+            vy: -Math.random() * 15 - 5,
             color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-            size: Math.random() * 6 + 2,
+            size: Math.random() * 8 + 3,
             life: 1
         });
     }
@@ -82,9 +87,8 @@ function updatePhysics() {
         }
     }
     
-    // Update Confetti
     gameState.confetti.forEach((p, i) => {
-        p.x += p.vx; p.y += p.vy; p.vy += 0.3; p.life -= 0.02;
+        p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.015;
         if(p.life <= 0) gameState.confetti.splice(i, 1);
     });
     
@@ -94,45 +98,44 @@ function updatePhysics() {
 function checkWinCondition() {
     if (gameState.hasWon) return;
     const isVertical = gameState.bottleAngle <= -Math.PI / 2 * 0.95;
-    const isStable = Math.abs(gameState.baseVelocity) < 0.2;
+    const isStable = Math.abs(gameState.baseVelocity) < 0.25;
 
     if (isVertical && isStable) {
         gameState.hasWon = true;
-        createConfetti();
-        gameState.score += 100 * gameState.level;
+        createVictoryConfetti();
+        gameState.score += 100;
         if (gameState.score > gameState.bestScore) {
             gameState.bestScore = gameState.score;
             localStorage.setItem("bestScore", gameState.bestScore);
             document.getElementById("bestScore").textContent = gameState.bestScore;
         }
         document.getElementById("score").textContent = gameState.score;
-        document.getElementById("status").textContent = "Perfect! 🎯";
+        document.getElementById("status").textContent = "WINNER! 🏮";
         
         setTimeout(() => {
             gameState.hasWon = false;
             gameState.bottleAngle = 0;
             gameState.level++;
-            gameState.friction = Math.max(0.5, 0.85 - (gameState.level * 0.02));
+            gameState.friction = Math.max(0.4, 0.85 - (gameState.level * 0.03));
             document.getElementById("level").textContent = gameState.level;
             document.getElementById("frictionVal").textContent = gameState.friction.toFixed(2);
             document.getElementById("status").textContent = "Level " + gameState.level;
-            canvas.style.boxShadow = `0 0 ${gameState.level * 5}px var(--neon-blue)`;
-        }, 2000);
+        }, 2500);
     }
 }
 
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Table
-    ctx.strokeStyle = `hsl(${180 + (gameState.level * 20)}, 100%, 50%)`;
-    ctx.lineWidth = 4;
+    // Table line
+    ctx.strokeStyle = `hsl(${200 + (gameState.level * 20)}, 100%, 50%)`;
+    ctx.lineWidth = 6;
     ctx.beginPath(); ctx.moveTo(0, gameState.bottleBaseY + 2); ctx.lineTo(canvas.width, gameState.bottleBaseY + 2); ctx.stroke();
 
     // Rope
-    const tension = Math.min(Math.abs(gameState.ropeVelocity) * 15, 150);
+    const tension = Math.min(Math.abs(gameState.ropeVelocity) * 20, 200);
     ctx.strokeStyle = `rgb(255, ${255 - tension}, 0)`;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(gameState.ropeAnchorX, gameState.ropeAnchorY);
     ctx.quadraticCurveTo((gameState.ropeAnchorX + gameState.ringX) / 2 + gameState.ropeSwing, (gameState.ropeAnchorY + gameState.ringY) / 2 + 30, gameState.ringX, gameState.ringY);
     ctx.stroke();
@@ -143,19 +146,18 @@ function drawGame() {
     ctx.translate(gameState.bottleBaseX + wobbleX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
     ctx.fillStyle = "#10b981"; ctx.fillRect(0, -21, 135, 42); 
-    ctx.fillStyle = "#065f46"; ctx.fillRect(40, -21, 50, 42);
-    ctx.fillStyle = "#10b981"; ctx.fillRect(135, -9, 35, 18); 
-    ctx.fillStyle = "#ff0033"; ctx.fillRect(170, -11, 8, 22);  
+    ctx.fillStyle = "#065f46"; ctx.fillRect(40, -21, 50, 42); // Label
+    ctx.fillStyle = "#10b981"; ctx.fillRect(135, -9, 35, 18); // Neck
+    ctx.fillStyle = "#ff0033"; ctx.fillRect(170, -11, 8, 22); // Cap
     ctx.restore();
 
     // Ring
-    ctx.strokeStyle = "#ff007f"; ctx.lineWidth = 6;
+    ctx.strokeStyle = "#ff007f"; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, gameState.ringRadius, 0, Math.PI * 2); ctx.stroke();
 
-    // Draw Confetti
+    // Confetti particles
     gameState.confetti.forEach(p => {
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
         ctx.fillRect(p.x, p.y, p.size, p.size);
     });
     ctx.globalAlpha = 1;
@@ -174,7 +176,7 @@ canvas.addEventListener("mousedown", (e) => {
     if (gameState.paused || gameState.hasWon) return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-    if (Math.hypot(mx - gameState.ringX, my - gameState.ringY) < 50) { gameState.isDragging = true; gameState.lastMouseX = mx; }
+    if (Math.hypot(mx - gameState.ringX, my - gameState.ringY) < 60) { gameState.isDragging = true; gameState.lastMouseX = mx; }
 });
 
 window.addEventListener("mousemove", (e) => {
@@ -182,11 +184,11 @@ window.addEventListener("mousemove", (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
     const speed = mx - gameState.lastMouseX;
-    gameState.ropeVelocity += speed * 0.15;
+    gameState.ropeVelocity += speed * 0.2;
     const dx = mx - gameState.bottleBaseX; const dy = my - gameState.bottleBaseY;
     gameState.bottleAngle = Math.max(-Math.PI / 2 - 0.1, Math.min(Math.atan2(dy, dx), 0.1));
-    if (Math.abs(mx - gameState.ringX) > 30) { gameState.baseVelocity += (mx > gameState.bottleBaseX ? 1 : -1) * (1.1 - gameState.friction); }
-    if (Math.abs(speed) > 15) gameState.bottleWobble = Math.abs(speed) * 0.5;
+    if (Math.abs(mx - gameState.ringX) > 40) { gameState.baseVelocity += (mx > gameState.bottleBaseX ? 1.2 : -1.2) * (1.1 - gameState.friction); }
+    if (Math.abs(speed) > 12) gameState.bottleWobble = Math.abs(speed) * 0.6;
     gameState.lastMouseX = mx;
 });
 
