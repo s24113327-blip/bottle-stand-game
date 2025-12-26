@@ -6,12 +6,7 @@
     --panel-bg: #0f172a;
 }
 
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
     background-color: var(--bg-dark);
@@ -23,6 +18,35 @@ body {
     align-items: center;
     overflow: hidden;
 }
+
+/* Carnival Side Decorations */
+.carnival-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    width: 95%;
+    justify-content: center;
+}
+
+.side-decoration {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-size: 2.2rem;
+    background: rgba(15, 23, 42, 0.9);
+    padding: 20px 10px;
+    border: 3px solid var(--neon-pink);
+    border-radius: 50px;
+    box-shadow: 0 0 20px var(--neon-pink);
+    animation: neonBlink 1.5s infinite alternate;
+}
+
+@keyframes neonBlink {
+    from { box-shadow: 0 0 20px var(--neon-pink); transform: scale(1); }
+    to { box-shadow: 0 0 35px var(--neon-pink); transform: scale(1.02); }
+}
+
+@media (max-width: 850px) { .side-decoration { display: none; } }
 
 .overlay {
     position: fixed;
@@ -39,103 +63,30 @@ body {
 
 .modal {
     background: var(--panel-bg);
-    padding: 2rem;
+    padding: 2.5rem;
     border-radius: 20px;
     border: 3px solid var(--neon-pink);
     box-shadow: 0 0 30px var(--neon-pink);
     text-align: center;
     max-width: 450px;
-    width: 90%;
 }
 
-.modal h2 { color: var(--neon-yellow); font-size: 2rem; }
-
-.how-to-list {
-    text-align: left;
-    margin: 1.5rem 0;
-    list-style: none;
-    color: #cbd5e1;
-}
-
-.how-to-list li { margin-bottom: 10px; padding-left: 25px; position: relative; }
+.how-to-list { text-align: left; margin: 1.5rem 0; list-style: none; color: #cbd5e1; }
+.how-to-list li { margin-bottom: 12px; padding-left: 30px; position: relative; }
 .how-to-list li::before { content: "🏮"; position: absolute; left: 0; }
 
-.game-container {
-    width: 95%;
-    max-width: 600px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
+.game-container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 10px; }
 .top-bar { display: flex; justify-content: space-between; }
+.score-box { background: var(--panel-bg); padding: 8px; border-radius: 10px; border-bottom: 3px solid var(--neon-blue); min-width: 90px; text-align: center; }
 
-.score-box {
-    background: var(--panel-bg);
-    padding: 8px;
-    border-radius: 10px;
-    border-bottom: 3px solid var(--neon-blue);
-    min-width: 90px;
-    text-align: center;
-}
-
-.header h1 {
-    text-align: center;
-    font-size: 2.5rem;
-    text-shadow: 0 0 10px var(--neon-pink);
-}
-
+.header h1 { text-align: center; font-size: 2.5rem; text-shadow: 0 0 15px var(--neon-pink); }
 .subtitle { text-align: center; color: var(--neon-blue); letter-spacing: 2px; }
 
-.game-board {
-    background: #000;
-    border-radius: 20px;
-    padding: 10px;
-    border: 4px solid #334155;
-}
-
-#gameCanvas {
-    width: 100%;
-    height: 450px;
-    display: block; /* Important for alignment */
-    background: radial-gradient(circle, #1e293b, #020617);
-    border-radius: 10px;
-    touch-action: none;
-}
+.game-board { background: #000; border-radius: 20px; padding: 10px; border: 4px solid #334155; }
+#gameCanvas { width: 100%; height: 450px; display: block; background: radial-gradient(circle, #1e293b, #020617); border-radius: 10px; touch-action: none; transition: box-shadow 0.3s ease; }
 
 .controls { display: flex; gap: 10px; margin-top: 10px; }
-
-.icon-btn {
-    background: var(--panel-bg);
-    border: 2px solid #334155;
-    color: white;
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
-    cursor: pointer;
-}
-
-.status-display {
-    flex-grow: 1;
-    background: #000;
-    border-radius: 12px;
-    border: 2px solid var(--neon-blue);
-    color: var(--neon-yellow);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-}
-
-.menu-btn {
-    background: var(--neon-pink);
-    color: white;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 50px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 0 15px var(--neon-pink);
-}
-
+.icon-btn { background: var(--panel-bg); border: 2px solid #334155; color: white; width: 50px; height: 50px; border-radius: 12px; cursor: pointer; }
+.status-display { flex-grow: 1; background: #000; border-radius: 12px; border: 2px solid var(--neon-blue); color: var(--neon-yellow); display: flex; justify-content: center; align-items: center; font-weight: bold; }
+.menu-btn { background: var(--neon-pink); color: white; border: none; padding: 12px 30px; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px var(--neon-pink); }
 .stats-footer { display: flex; justify-content: space-between; color: #64748b; font-size: 0.8rem; margin-top: 5px; }
