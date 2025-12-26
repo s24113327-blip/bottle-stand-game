@@ -30,33 +30,43 @@
         </div>
     </div>
 
-    <div class="game-container">
-        <div class="top-bar">
-            <div class="score-box">Points: <span id="score">0</span></div>
-            <div class="score-box level-tag">Lv: <span id="level">1</span></div>
-            <div class="score-box">Best: <span id="bestScore">0</span></div>
+    <div class="carnival-wrapper">
+        <div class="side-decoration left">
+            <span>🏮</span><span>夜</span><span>市</span><span>🏮</span>
         </div>
 
-        <div class="header">
-            <h1>夜市立瓶子</h1>
-            <p class="subtitle">BOTTLE STAND CHALLENGE</p>
-        </div>
-        
-        <div class="game-board">
-            <canvas id="gameCanvas"></canvas>
+        <div class="game-container">
+            <div class="top-bar">
+                <div class="score-box">Points: <span id="score">0</span></div>
+                <div class="score-box level-tag">Lv: <span id="level">1</span></div>
+                <div class="score-box">Best: <span id="bestScore">0</span></div>
+            </div>
+
+            <div class="header">
+                <h1>夜市立瓶子</h1>
+                <p class="subtitle">BOTTLE STAND CHALLENGE</p>
+            </div>
             
-            <div class="controls">
-                <button id="pauseBtn" class="icon-btn">⏸</button>
-                <div class="status-display">
-                    <span id="status">Stand the bottle!</span>
+            <div class="game-board">
+                <canvas id="gameCanvas"></canvas>
+                
+                <div class="controls">
+                    <button id="pauseBtn" class="icon-btn">⏸</button>
+                    <div class="status-display">
+                        <span id="status">Stand the bottle!</span>
+                    </div>
+                    <button id="resetBtn" class="icon-btn">🔄</button>
                 </div>
-                <button id="resetBtn" class="icon-btn">🔄</button>
+            </div>
+
+            <div class="stats-footer">
+                <span>Attempts: <span id="attempts">0</span></span>
+                <span>Grip: <span id="frictionVal">0.85</span></span>
             </div>
         </div>
 
-        <div class="stats-footer">
-            <span>Attempts: <span id="attempts">0</span></span>
-            <span>Surface Grip: <span id="frictionVal">0.85</span></span>
+        <div class="side-decoration right">
+            <span>🏮</span><span>獎</span><span>品</span><span>🏮</span>
         </div>
     </div>
 
