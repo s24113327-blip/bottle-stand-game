@@ -28,21 +28,16 @@ const gameState = {
 };
 
 function init() {
-    // Correctly scale canvas for desktop
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
-    
-    // Position bottle relative to current screen width
     gameState.originalBaseX = canvas.width / 2 - 80;
     gameState.bottleBaseX = gameState.originalBaseX;
     gameState.bottleBaseY = canvas.height * 0.85;
     gameState.ropeAnchorX = canvas.width / 2;
-    
     document.getElementById("bestScore").textContent = gameState.bestScore;
     updateRingPosition();
 }
 
-// Auto-adjust when desktop window is resized
 window.onresize = init;
 
 function updateRingPosition() {
@@ -110,7 +105,7 @@ function checkWinCondition() {
             document.getElementById("bestScore").textContent = gameState.bestScore;
         }
         document.getElementById("score").textContent = gameState.score;
-        document.getElementById("status").textContent = "WINNER! 🏮";
+        document.getElementById("status").textContent = "Perfect Stand! 🏮";
         
         setTimeout(() => {
             gameState.hasWon = false;
@@ -119,7 +114,7 @@ function checkWinCondition() {
             gameState.friction = Math.max(0.4, 0.85 - (gameState.level * 0.03));
             document.getElementById("level").textContent = gameState.level;
             document.getElementById("frictionVal").textContent = gameState.friction.toFixed(2);
-            document.getElementById("status").textContent = "Level " + gameState.level;
+            document.getElementById("status").textContent = "Entering Level " + gameState.level;
         }, 2500);
     }
 }
@@ -127,7 +122,7 @@ function checkWinCondition() {
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Table line
+    // Table
     ctx.strokeStyle = `hsl(${200 + (gameState.level * 20)}, 100%, 50%)`;
     ctx.lineWidth = 6;
     ctx.beginPath(); ctx.moveTo(0, gameState.bottleBaseY + 2); ctx.lineTo(canvas.width, gameState.bottleBaseY + 2); ctx.stroke();
@@ -146,16 +141,16 @@ function drawGame() {
     ctx.translate(gameState.bottleBaseX + wobbleX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
     ctx.fillStyle = "#10b981"; ctx.fillRect(0, -21, 135, 42); 
-    ctx.fillStyle = "#065f46"; ctx.fillRect(40, -21, 50, 42); // Label
-    ctx.fillStyle = "#10b981"; ctx.fillRect(135, -9, 35, 18); // Neck
-    ctx.fillStyle = "#ff0033"; ctx.fillRect(170, -11, 8, 22); // Cap
+    ctx.fillStyle = "#065f46"; ctx.fillRect(40, -21, 50, 42); 
+    ctx.fillStyle = "#10b981"; ctx.fillRect(135, -9, 35, 18); 
+    ctx.fillStyle = "#ff0033"; ctx.fillRect(170, -11, 8, 22); 
     ctx.restore();
 
     // Ring
     ctx.strokeStyle = "#ff007f"; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, gameState.ringRadius, 0, Math.PI * 2); ctx.stroke();
 
-    // Confetti particles
+    // Confetti
     gameState.confetti.forEach(p => {
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
         ctx.fillRect(p.x, p.y, p.size, p.size);
