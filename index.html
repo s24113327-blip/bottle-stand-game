@@ -11,12 +11,11 @@
         <div class="modal">
             <h2>🏮 Stand-by-Me 🏮</h2>
             <h3>Night Market Challenge</h3>
-            <p>Can you master the center of gravity? Standing a bottle with just a ring is a classic skill game in Taiwan's night markets.</p>
+            <p>Master the center of gravity! This isn't a magnet game—it's a skill game. If you pull too hard, the ring will slip!</p>
             <ul class="how-to-list">
-                <li>🎯 <strong>Hook:</strong> Click the pink ring to grab it.</li>
-                <li>⬆️ <strong>Lift:</strong> Pull the ring upward slowly.</li>
-                <li>⚠️ <strong>Caution:</strong> Pulling too fast makes the base slide!</li>
-                <li>🏆 <strong>Win:</strong> Make the bottle stand perfectly vertical.</li>
+                <li>🎯 <strong>Manual Hook:</strong> Drag the ring over the red cap to hook it.</li>
+                <li>⬆️ <strong>Gentle Lift:</strong> Pull upward slowly. Speed will break your hook!</li>
+                <li>⚠️ <strong>Difficulty:</strong> As levels rise, the floor gets slipperier.</li>
             </ul>
             <button id="startBtn" class="menu-btn">START GAME</button>
         </div>
@@ -26,7 +25,7 @@
         <div class="modal">
             <h2>GAME PAUSED</h2>
             <button id="resumeBtn" class="menu-btn">RESUME</button>
-            <button id="exitBtn" class="menu-btn exit">EXIT TO MENU</button>
+            <button id="exitBtn" class="menu-btn exit">EXIT</button>
         </div>
     </div>
 
@@ -47,13 +46,13 @@
                 <p class="subtitle">TAIWAN NIGHT MARKET SKILL GAME</p>
             </div>
             
-            <div class="game-board">
+            <div class="game-board" id="boardFrame">
                 <canvas id="gameCanvas"></canvas>
                 
                 <div class="controls">
                     <button id="pauseBtn" class="icon-btn">⏸</button>
                     <div class="status-display">
-                        <span id="status">Stand the bottle!</span>
+                        <span id="status">Hook the bottle cap!</span>
                     </div>
                     <button id="resetBtn" class="icon-btn">🔄</button>
                 </div>
