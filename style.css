@@ -16,7 +16,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden; /* Prevents scrolling */
+    overflow: hidden;
 }
 
 .carnival-wrapper { 
@@ -25,7 +25,7 @@ body {
     justify-content: center;
     gap: 20px;
     width: 95%;
-    max-height: 98vh; /* Keeps everything within screen height */
+    max-height: 98vh; /* Ensures UI stays within screen height */
 }
 
 .side-decoration {
@@ -38,7 +38,7 @@ body {
 
 .game-container {
     flex: 1;
-    max-width: 800px; /* Limits width to keep game manageable */
+    max-width: 800px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -48,7 +48,6 @@ body {
     display: flex; 
     justify-content: space-between; 
     gap: 8px; 
-    height: 50px; /* Fixed height so it doesn't get cut */
 }
 
 .score-box { 
@@ -60,7 +59,6 @@ body {
     text-align: center; 
     font-size: 0.85rem;
     font-weight: bold;
-    white-space: nowrap;
 }
 
 .header h1 { 
@@ -77,13 +75,12 @@ body {
 #gameCanvas {
     width: 100%;
     height: auto;
-    max-height: 60vh; /* Prevents canvas from pushing UI off screen */
+    max-height: 60vh; /* Prevents zooming in/pushing scores off screen */
     background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
     border-radius: 8px;
     display: block;
 }
 
-/* Modal and Controls remain the same */
 .controls { display: flex; gap: 10px; margin-top: 10px; }
 .status-display {
     flex-grow: 1; background: #000; border-radius: 10px;
@@ -91,8 +88,8 @@ body {
     display: flex; justify-content: center; align-items: center;
     font-weight: bold; font-size: 0.9rem;
 }
+
 .icon-btn { background: #1e293b; border: 2px solid #475569; color: white; width: 45px; height: 45px; border-radius: 10px; cursor: pointer; }
 .menu-btn { background: var(--neon-pink); color: white; border: none; padding: 12px 30px; border-radius: 50px; cursor: pointer; font-weight: bold; }
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: flex; justify-content: center; align-items: center; }
-.modal { text-align: center; background: #0f172a; padding: 30px; border-radius: 20px; border: 2px solid var(--neon-blue); max-width: 400px; }
-.hidden { display: none !important; }
+.modal { text-align: center; background: #0f172a; padding: 30px; border-radius: 20px; border
