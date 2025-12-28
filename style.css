@@ -76,4 +76,5 @@ body {
 .menu-btn { background: var(--neon-pink); color: white; border: none; padding: 12px 30px; border-radius: 50px; cursor: pointer; font-weight: bold; }
 
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: flex; justify-content: center; align-items: center; }
+.modal { text-align: center; background: #1e293b; padding: 40px; border-radius: 20px; border: 2px solid var(--neon-blue); }
 .hidden { display: none !important; }
