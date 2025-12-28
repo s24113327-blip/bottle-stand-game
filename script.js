@@ -19,7 +19,7 @@ const gameState = {
     isDragging: false,
     isHooked: false, 
     hasWon: false,
-    friction: 0.92, 
+    friction: 0.95, // Increased friction further for a "heavy" feel
     baseVelocity: 0,
     confetti: []
 };
@@ -62,30 +62,31 @@ function updatePhysics() {
     }
 
     if (!gameState.isHooked) {
-        // 1. Smoothly fall back to 0 degrees
         if (gameState.bottleAngle < 0) {
             gameState.bottleAngle += gravity;
         }
         
-        // 2. Clamp at 0 (ground level)
         if (gameState.bottleAngle >= 0) {
             gameState.bottleAngle = 0;
-            
-            // 3. ONLY return to center if the bottle is flat on the ground
-            // This prevents the "violent shake" during the fall
-            const centeringForce = (gameState.originalBaseX - gameState.bottleBaseX) * 0.02;
-            gameState.baseVelocity += centeringForce;
+            // Only apply centering force if the bottle is NOT sliding quickly
+            // This dampens the "shake"
+            const distToCenter = gameState.originalBaseX - gameState.bottleBaseX;
+            if (Math.abs(distToCenter) > 0.5) {
+                gameState.baseVelocity += distToCenter * 0.01; // Lowered force to 0.01
+            } else {
+                gameState.bottleBaseX = gameState.originalBaseX;
+                gameState.baseVelocity = 0;
+            }
         }
     }
 
-    // Apply movement and damping
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= gameState.friction;
 }
 
 function checkWinCondition() {
     if (gameState.hasWon) return;
-    // Win if vertical and almost still
+    
     if (gameState.bottleAngle <= -Math.PI / 2 * 0.98 && Math.abs(gameState.baseVelocity) < 0.1) {
         gameState.hasWon = true;
         gameState.score += 100 * gameState.level;
@@ -95,7 +96,12 @@ function checkWinCondition() {
         setTimeout(() => {
             gameState.hasWon = false;
             gameState.level++;
-            gameState.friction = Math.max(0.88, 0.92 - (gameState.level * 0.01));
+            
+            // KEY FIX: Reset the momentum for the next round
+            gameState.baseVelocity = 0; 
+            gameState.bottleBaseX = gameState.originalBaseX;
+            
+            gameState.friction = Math.max(0.90, 0.95 - (gameState.level * 0.01));
             document.getElementById("level").textContent = gameState.level;
             resetRing();
             gameState.bottleAngle = 0;
@@ -166,7 +172,7 @@ window.addEventListener("mousemove", (e) => {
         gameState.bottleAngle = Math.atan2(dy, dx);
         
         if (Math.abs(gameState.ringX - bottleTopX) > 10) {
-            gameState.baseVelocity += (gameState.ringX > bottleTopX ? 0.5 : -0.5) * (1.1 - gameState.friction);
+            gameState.baseVelocity += (gameState.ringX > bottleTopX ? 0.4 : -0.4) * (1.1 - gameState.friction);
         }
     }
 });
