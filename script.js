@@ -2,7 +2,6 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-// Audio System
 function playClink(v = 0.1, f = 1200) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const o = audioCtx.createOscillator();
@@ -31,7 +30,7 @@ const gameState = {
     level: 1, score: 0, bestScore: localStorage.getItem("standByMeBest") || 0,
     bottleAngle: 0, bottleBaseX: 320, originalBaseX: 320, bottleBaseY: 352,
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
-    baseVelocity: 0, confetti: [],
+    baseVelocity: 0, confetti: [], smoke: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
     currentPalette: ["#064e3b", "#10b981", "#064e3b"],
     skins: {
@@ -42,6 +41,25 @@ const gameState = {
         20: ["#4c1d95", "#a855f7", "#4c1d95"]
     }
 };
+
+function updateSmoke() {
+    if (Math.random() > 0.94) {
+        gameState.smoke.push({
+            x: Math.random() * 800,
+            y: 470,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: -Math.random() * 0.8 - 0.2,
+            size: Math.random() * 50 + 20,
+            opacity: Math.random() * 0.12 + 0.05
+        });
+    }
+    for (let i = gameState.smoke.length - 1; i >= 0; i--) {
+        let s = gameState.smoke[i];
+        s.x += s.vx; s.y += s.vy;
+        s.opacity -= 0.0004;
+        if (s.opacity <= 0) gameState.smoke.splice(i, 1);
+    }
+}
 
 function checkObjectives() {
     let unlockedLv = 1;
@@ -96,12 +114,9 @@ function updatePhysics() {
     const dt = (now - gameState.lastTime) / 1000;
     gameState.lastTime = now;
     gameState.timeLeft -= dt;
+    updateSmoke();
 
     if (gameState.timeLeft <= 0) triggerGameOver("TIME'S UP!");
-
-    const statusEl = document.getElementById("status");
-    statusEl.textContent = gameState.isHooked ? "STEADY..." : "HOOK THE CAP";
-    statusEl.style.color = (gameState.timeLeft < 5 && Math.floor(now / 200) % 2 === 0) ? "#ff4444" : "white";
 
     const levelMod = Math.min(gameState.level, 20);
     const gravity = 0.038 + (levelMod * 0.003); 
@@ -138,46 +153,51 @@ function updatePhysics() {
 
 function drawGame() {
     ctx.clearRect(0, 0, 800, 450);
-    ctx.globalAlpha = 1.0; 
 
-    // Timer Bar UI
+    // 1. Draw Colored Smoke (Matches Skin)
+    gameState.smoke.forEach(s => {
+        ctx.beginPath();
+        let g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size);
+        // Smoke tinted with the skin's secondary color
+        g.addColorStop(0, `${gameState.currentPalette[1]}${Math.floor(s.opacity*255).toString(16).padStart(2,'0')}`);
+        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = g;
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // 2. Timer Bar
     const prog = gameState.timeLeft / gameState.maxTime;
     ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
     ctx.fillRect(780, 125, 8, 200);
     ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
     ctx.fillRect(780, 125 + (200 * (1 - prog)), 8, 200 * prog);
 
-    // Platform
-    ctx.fillStyle = "#1e293b"; 
-    ctx.fillRect(0, gameState.bottleBaseY + 22, 800, 4);
+    // 3. Platform (No shadow, just glow line)
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "#00f2ff";
+    ctx.fillStyle = "#00f2ff"; 
+    ctx.fillRect(0, gameState.bottleBaseY + 22, 800, 2);
+    ctx.shadowBlur = 0;
 
-    // DYNAMIC CONTACT SHADOW
-    ctx.save();
-    ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY + 22);
-    let shadowWidth = 90 + Math.abs(gameState.bottleAngle) * 60;
-    let shadowAlpha = 0.5 - Math.abs(gameState.bottleAngle) * 0.25;
-    let shadowGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, shadowWidth / 2);
-    shadowGrad.addColorStop(0, `rgba(0, 0, 0, ${shadowAlpha})`);
-    shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = shadowGrad;
-    ctx.scale(1, 0.2); 
-    ctx.beginPath(); ctx.arc(0, 0, shadowWidth / 2, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-
-    // Bottle
+    // 4. Bottle
     ctx.save();
     ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
-    const g = ctx.createLinearGradient(0, -20, 0, 20);
-    g.addColorStop(0, gameState.currentPalette[0]); 
-    g.addColorStop(0.4, gameState.currentPalette[1]); 
-    g.addColorStop(1, gameState.currentPalette[2]);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, -21, 130, 42); ctx.fillRect(130, -8, 40, 16);
-    ctx.fillStyle = "#ef4444"; ctx.fillRect(170, -10, 10, 20);
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = gameState.currentPalette[1];
+    const grad = ctx.createLinearGradient(0, -20, 0, 20);
+    grad.addColorStop(0, gameState.currentPalette[0]); 
+    grad.addColorStop(0.4, gameState.currentPalette[1]); 
+    grad.addColorStop(1, gameState.currentPalette[2]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, -21, 130, 42); 
+    ctx.fillRect(130, -8, 40, 16);
+    ctx.fillStyle = "#ef4444"; 
+    ctx.fillRect(170, -10, 10, 20);
     ctx.restore();
 
-    // Rope & Ring
+    // 5. Rope & Ring
     ctx.strokeStyle = gameState.isHooked ? "#ffeb3b" : "#444"; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(400, 0);
     ctx.quadraticCurveTo((400 + gameState.ringX)/2, (gameState.ringY)/2 + 30, gameState.ringX, gameState.ringY);
@@ -188,7 +208,6 @@ function drawGame() {
     gameState.confetti.forEach(p => { 
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 4, 4); 
     });
-    ctx.globalAlpha = 1.0;
 }
 
 function triggerGameOver(reason) {
@@ -221,7 +240,6 @@ function checkWin() {
     }
 }
 
-// Controls
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (800 / rect.width);
