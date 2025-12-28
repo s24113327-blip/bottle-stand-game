@@ -27,7 +27,7 @@ function init() {
     canvas.height = 450;
     gameState.originalBaseX = canvas.width / 2 - 80;
     gameState.bottleBaseX = gameState.originalBaseX;
-    gameState.bottleBaseY = canvas.height * 0.85;
+    gameState.bottleBaseY = canvas.height * 0.82; // Slightly higher for table view
     resetRing();
 }
 
@@ -46,7 +46,6 @@ function resetRing() {
     gameState.isDragging = false;
     gameState.ringX = canvas.width / 2;
     gameState.ringY = 150;
-    gameState.baseVelocity = 0;
 }
 
 function handleMovement(pos) {
@@ -55,7 +54,6 @@ function handleMovement(pos) {
     gameState.ringX = pos.x;
     gameState.ringY = pos.y;
 
-    // Check for hooking if not already hooked
     if (!gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
@@ -70,31 +68,31 @@ function updatePhysics() {
     if (gameState.hasWon || gameState.paused) return;
     gameState.wind += 0.02;
 
-    const gravity = 0.03 + (gameState.level * 0.005);
+    const gravity = 0.035 + (gameState.level * 0.005);
 
     if (gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
         
-        // Calculate Tension
         const tension = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
 
-        if (tension > 55) { // Slip threshold
+        if (tension > 55) {
             gameState.isHooked = false;
             document.getElementById("status").textContent = "SLIPPED!";
         } else {
-            // Smooth Rotation (Weight Logic)
+            // Smooth Weight Rotation
             const targetAngle = Math.atan2(gameState.ringY - gameState.bottleBaseY, gameState.ringX - gameState.bottleBaseX);
-            const followSpeed = 0.06; // Makes the bottle feel heavy
+            const followSpeed = 0.07;
             gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * followSpeed;
 
-            // Base sliding friction/movement
-            if (Math.abs(gameState.ringX - capX) > 5) {
-                gameState.baseVelocity += (gameState.ringX > capX ? 0.2 : -0.2);
-            }
+            // Surface Friction Logic:
+            // The more upright the bottle, the more unstable the base becomes.
+            const uprightFactor = Math.abs(Math.sin(gameState.bottleAngle)); 
+            const horizontalPull = (gameState.ringX - capX) * 0.04;
+            gameState.baseVelocity += horizontalPull * (1 + uprightFactor);
         }
     } else {
-        // Gravity returns bottle to ground
+        // Gravity Reset
         if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
         if (gameState.bottleAngle >= 0) {
             gameState.bottleAngle = 0;
@@ -104,11 +102,11 @@ function updatePhysics() {
         }
     }
 
-    // Apply base velocity and friction
+    // Apply motion and friction
     gameState.bottleBaseX += gameState.baseVelocity;
-    gameState.baseVelocity *= 0.92;
+    gameState.baseVelocity *= 0.90; // Table friction
 
-    // Confetti
+    // Confetti physics
     gameState.confetti.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
         if(p.life <= 0) gameState.confetti.splice(i, 1);
@@ -118,7 +116,21 @@ function updatePhysics() {
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Rope
+    // 1. Draw Table
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, gameState.bottleBaseY + 22);
+    ctx.lineTo(canvas.width, gameState.bottleBaseY + 22);
+    ctx.stroke();
+
+    // 2. Draw Bottle Shadow
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.beginPath();
+    ctx.ellipse(gameState.bottleBaseX, gameState.bottleBaseY + 20, 50, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Draw Rope
     const sway = Math.sin(gameState.wind) * 15;
     ctx.strokeStyle = gameState.isHooked ? "#fbbf24" : "#475569";
     ctx.lineWidth = 3;
@@ -129,32 +141,34 @@ function drawGame() {
     ctx.quadraticCurveTo(cpX, cpY, gameState.ringX, gameState.ringY);
     ctx.stroke();
 
-    // Bottle
+    // 4. Draw Bottle
     ctx.save();
     ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
     
-    // Glass Body
+    // Glass Body with Highlight
     const g = ctx.createLinearGradient(0, -20, 0, 20);
-    g.addColorStop(0, "#064e3b"); g.addColorStop(0.5, "#10b981"); g.addColorStop(1, "#064e3b");
+    g.addColorStop(0, "#064e3b"); g.addColorStop(0.4, "#10b981"); g.addColorStop(1, "#064e3b");
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.roundRect(0, -21, 130, 42, [5, 15, 15, 5]); ctx.fill();
     
-    // Neck and Cap
+    // Neck and Red Cap
     ctx.fillRect(130, -8, 40, 16);
-    ctx.fillStyle = "#ef4444"; ctx.roundRect(170, -10, 10, 20, 3); ctx.fill();
+    ctx.fillStyle = "#ef4444"; 
+    ctx.beginPath(); ctx.roundRect(170, -10, 10, 20, 3); ctx.fill();
     ctx.restore();
 
-    // Ring
+    // 5. Draw Ring
     const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
     const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
     const tension = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
     
-    // Change color if tension is high
-    ctx.strokeStyle = (gameState.isHooked && tension > 40) ? "#ff4444" : (gameState.isHooked ? "#ff007f" : "#fff");
+    // Tension Warning (Turn red when close to slipping)
+    ctx.strokeStyle = (gameState.isHooked && tension > 42) ? "#ff4444" : (gameState.isHooked ? "#ff007f" : "#fff");
     ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
+    // 6. Confetti
     gameState.confetti.forEach(p => {
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
         ctx.fillRect(p.x, p.y, 4, 4);
@@ -164,8 +178,8 @@ function drawGame() {
 
 function checkWin() {
     if (gameState.hasWon) return;
-    // Win condition: Bottle is vertical (approx -90 degrees) and stable
-    if (gameState.bottleAngle <= -Math.PI/2 * 0.95 && Math.abs(gameState.baseVelocity) < 0.2) {
+    // Condition: Bottle is vertical and the base is moving very slowly
+    if (gameState.bottleAngle <= -Math.PI/2 * 0.96 && Math.abs(gameState.baseVelocity) < 0.25) {
         gameState.hasWon = true;
         gameState.score += 100;
         document.getElementById("score").textContent = gameState.score;
@@ -177,10 +191,10 @@ function checkWin() {
         }
 
         document.getElementById("status").textContent = "PERFECT! 🏮";
-        for(let i=0; i<30; i++) {
+        for(let i=0; i<40; i++) {
             gameState.confetti.push({
-                x: gameState.bottleBaseX, y: gameState.bottleBaseY - 100,
-                vx: (Math.random()-0.5)*10, vy: -Math.random()*10-5,
+                x: gameState.bottleBaseX, y: gameState.bottleBaseY - 120,
+                vx: (Math.random()-0.5)*12, vy: -Math.random()*10-5,
                 color: `hsl(${Math.random()*360}, 100%, 50%)`, life: 1
             });
         }
@@ -197,6 +211,7 @@ function checkWin() {
     }
 }
 
+// Controls
 canvas.onmousedown = (e) => {
     if (gameState.paused) return;
     const pos = getMousePos(e);
