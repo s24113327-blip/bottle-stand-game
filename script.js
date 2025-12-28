@@ -58,7 +58,7 @@ function updateSmoke() {
             vx: (Math.random() - 0.5) * 0.4,
             vy: -Math.random() * 0.6 - 0.3,
             size: Math.random() * 40 + 30,
-            opacity: 0.25 // Slightly more visible than before
+            opacity: 0.25 
         });
     }
     for (let i = gameState.smoke.length - 1; i >= 0; i--) {
@@ -85,6 +85,7 @@ function checkObjectives() {
 
 function updateLevelSidebar() {
     const list = document.getElementById("levelList");
+    if (!list) return;
     list.innerHTML = "";
     for (let i = 1; i <= Math.max(5, gameState.level + 2); i++) {
         const li = document.createElement("li");
@@ -96,8 +97,12 @@ function updateLevelSidebar() {
 
 function init() {
     gameState.bottleBaseX = gameState.originalBaseX;
-    gameState.score = 0; gameState.level = 1;
-    gameState.gameOver = false; gameState.timeLeft = 20;
+    gameState.bottleAngle = 0;
+    gameState.score = 0; 
+    gameState.level = 1;
+    gameState.gameOver = false; 
+    gameState.timeLeft = 20;
+    gameState.baseVelocity = 0;
     document.getElementById("score").textContent = "0";
     document.getElementById("level").textContent = "1";
     document.getElementById("bestScore").textContent = gameState.bestScore;
@@ -107,8 +112,10 @@ function init() {
 }
 
 function resetRing() {
-    gameState.isHooked = false; gameState.isDragging = false;
-    gameState.ringX = 400; gameState.ringY = 150;
+    gameState.isHooked = false; 
+    gameState.isDragging = false;
+    gameState.ringX = 400; 
+    gameState.ringY = 150;
 }
 
 function updatePhysics() {
@@ -121,32 +128,41 @@ function updatePhysics() {
 
     if (gameState.timeLeft <= 0) triggerGameOver("TIME'S UP!");
 
-    const gravity = 0.038 + (Math.min(gameState.level, 20) * 0.003); 
+    const gravity = 0.04 + (Math.min(gameState.level, 20) * 0.005); 
     const friction = 0.96;
 
     if (gameState.isHooked) {
-        // Correcting Hook collision point to match new drawing logic
+        // Calculate the cap position relative to the base and current angle
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
-        if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) > 55) {
-            gameState.isHooked = false; playClink(0.1, 400);
+        
+        const dist = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
+        
+        if (dist > 65) {
+            gameState.isHooked = false; 
+            playClink(0.1, 400);
         } else {
-            const target = Math.atan2(gameState.ringY - 350, gameState.ringX - gameState.bottleBaseX);
-            gameState.bottleAngle += (target - gameState.bottleAngle) * 0.07;
-            gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
+            // Pull the bottle toward the ring position
+            const targetAngle = Math.atan2(gameState.ringY - 350, gameState.ringX - gameState.bottleBaseX);
+            gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * 0.12;
+            // The base slides if the ring pulls hard horizontally
+            gameState.baseVelocity += (gameState.ringX - capX) * 0.05;
         }
     } else {
-        if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
-        if (gameState.bottleAngle >= 0) {
-            if (gameState.bottleAngle !== 0) playClink(0.05, 200);
-            gameState.bottleAngle = 0;
-            gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.02;
+        // Gravity pulls the bottle back to the floor (0 radians)
+        if (gameState.bottleAngle < 0) {
+            gameState.bottleAngle += gravity;
         }
+        if (gameState.bottleAngle > 0) gameState.bottleAngle = 0;
+
+        // Slide the base back to the center of the table
+        gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.03;
     }
+
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= friction;
 
-    if (gameState.bottleBaseX < -60 || gameState.bottleBaseX > 860) triggerGameOver("BOTTLE FELL!");
+    if (gameState.bottleBaseX < 50 || gameState.bottleBaseX > 750) triggerGameOver("BOTTLE FELL!");
 
     gameState.confetti.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
@@ -169,60 +185,74 @@ function drawGame() {
         ctx.fill();
     });
 
-    // 2. Table Line (Ground)
+    // 2. Floor / Table
     ctx.shadowBlur = 10;
     ctx.shadowColor = "#00f2ff";
     ctx.fillStyle = "#00f2ff"; 
-    ctx.fillRect(0, 350, 800, 3);
+    ctx.fillRect(0, 350, 800, 4);
     ctx.shadowBlur = 0;
 
-    // 3. Bottle (DRAWN ON TOP OF LINE)
+    // 3. Bottle Shadow
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath();
+    ctx.ellipse(gameState.bottleBaseX + 85, 360, 90, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // 4. Bottle Drawing
     ctx.save();
     ctx.translate(gameState.bottleBaseX, 350); 
     ctx.rotate(gameState.bottleAngle);
+    
     ctx.shadowBlur = 15;
     ctx.shadowColor = gameState.currentPalette[1];
     
-    const grad = ctx.createLinearGradient(0, -42, 0, 0);
+    const grad = ctx.createLinearGradient(0, -20, 0, 20);
     grad.addColorStop(0, gameState.currentPalette[0]); 
-    grad.addColorStop(0.4, gameState.currentPalette[1]); 
+    grad.addColorStop(0.5, gameState.currentPalette[1]); 
     grad.addColorStop(1, gameState.currentPalette[2]);
     
     ctx.fillStyle = grad;
-    // Main Body: Height 42. By using -42, the bottom of the rect is at 0 (the table)
-    ctx.fillRect(0, -21, 130, 42); 
+    // Bottle Body
+    ctx.beginPath();
+    ctx.roundRect(0, -21, 130, 42, 5);
+    ctx.fill();
     // Neck
-    ctx.fillRect(130, -8, 40, 16);
+    ctx.fillRect(130, -10, 40, 20);
     // Cap
-    ctx.fillStyle = "#ef4444"; 
-    ctx.fillRect(170, -10, 10, 20);
+    ctx.fillStyle = "#ff4444"; 
+    ctx.fillRect(170, -12, 10, 24);
     ctx.restore();
 
-    // 4. Rope & UI
-    const prog = gameState.timeLeft / gameState.maxTime;
+    // 5. Timer UI
+    const prog = Math.max(0, gameState.timeLeft / gameState.maxTime);
     ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
     ctx.fillRect(780, 125, 8, 200);
     ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
     ctx.fillRect(780, 125 + (200 * (1 - prog)), 8, 200 * prog);
 
-    ctx.strokeStyle = gameState.isHooked ? "#ffeb3b" : "#444"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(400, 0);
-    ctx.quadraticCurveTo((400 + gameState.ringX)/2, (gameState.ringY)/2 + 30, gameState.ringX, gameState.ringY);
+    // 6. Rope
+    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#444"; 
+    ctx.lineWidth = 2;
+    ctx.beginPath(); 
+    ctx.moveTo(400, 0);
+    ctx.lineTo(gameState.ringX, gameState.ringY - 22);
     ctx.stroke();
-    ctx.strokeStyle = gameState.isHooked ? "#ff007f" : "#fff"; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
+    // 7. Ring
+    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#fff"; 
+    ctx.lineWidth = 4;
+    ctx.beginPath(); 
+    ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); 
+    ctx.stroke();
+
+    // 8. Confetti
     gameState.confetti.forEach(p => { 
-        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 4, 4); 
+        ctx.fillStyle = p.color; 
+        ctx.globalAlpha = p.life; 
+        ctx.fillRect(p.x, p.y, 5, 5); 
     });
+    ctx.globalAlpha = 1.0;
 }
-
-// Logic for Buttons
-document.getElementById("startBtn").onclick = () => { initAudio(); document.getElementById("tutorialOverlay").classList.add("hidden"); gameState.paused = false; gameState.lastTime = performance.now(); init(); };
-document.getElementById("restartBtn").onclick = () => { initAudio(); document.getElementById("gameOverOverlay").classList.add("hidden"); init(); gameState.paused = false; gameState.lastTime = performance.now(); };
-document.getElementById("resumeBtn").onclick = () => { initAudio(); gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
-document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
-document.getElementById("resetBtn").onclick = () => location.reload();
 
 function triggerGameOver(reason) {
     gameState.gameOver = true;
@@ -233,25 +263,71 @@ function triggerGameOver(reason) {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
-    if (gameState.bottleAngle <= -1.52 && Math.abs(gameState.baseVelocity) < 0.25) {
-        gameState.hasWon = true; gameState.score += 100; playWinSound();
+    // Upright is -PI/2 (approx -1.57)
+    if (gameState.bottleAngle <= -1.48 && Math.abs(gameState.baseVelocity) < 0.25) {
+        gameState.hasWon = true; 
+        gameState.score += 100; 
+        playWinSound();
         document.getElementById("score").textContent = gameState.score;
+        
         if (gameState.score > gameState.bestScore) {
             gameState.bestScore = gameState.score;
             localStorage.setItem("standByMeBest", gameState.bestScore);
             document.getElementById("bestScore").textContent = gameState.bestScore;
         }
-        for(let i=0; i<40; i++) gameState.confetti.push({x: gameState.bottleBaseX, y: 250, vx: (Math.random()-0.5)*10, vy: -Math.random()*10, color: `hsl(${Math.random()*360},100%,50%)`, life: 1});
+        
+        for(let i=0; i<40; i++) {
+            gameState.confetti.push({
+                x: gameState.bottleBaseX, 
+                y: 250, 
+                vx: (Math.random()-0.5)*10, 
+                vy: -Math.random()*10, 
+                color: `hsl(${Math.random()*360},100%,50%)`, 
+                life: 1
+            });
+        }
+
         setTimeout(() => {
-            gameState.hasWon = false; gameState.level++;
+            gameState.hasWon = false; 
+            gameState.level++;
             document.getElementById("level").textContent = gameState.level;
-            gameState.bottleAngle = 0; gameState.bottleBaseX = gameState.originalBaseX;
+            gameState.bottleAngle = 0; 
+            gameState.bottleBaseX = gameState.originalBaseX;
             gameState.timeLeft = 20;
             gameState.lastTime = performance.now();
-            checkObjectives(); updateLevelSidebar(); resetRing();
+            checkObjectives(); 
+            updateLevelSidebar(); 
+            resetRing();
         }, 2000);
     }
 }
+
+// Controls
+document.getElementById("startBtn").onclick = () => { 
+    initAudio(); 
+    document.getElementById("tutorialOverlay").classList.add("hidden"); 
+    gameState.paused = false; 
+    gameState.lastTime = performance.now(); 
+    init(); 
+};
+document.getElementById("restartBtn").onclick = () => { 
+    initAudio(); 
+    document.getElementById("gameOverOverlay").classList.add("hidden"); 
+    init(); 
+    gameState.paused = false; 
+    gameState.lastTime = performance.now(); 
+};
+document.getElementById("resumeBtn").onclick = () => { 
+    initAudio(); 
+    gameState.paused = false; 
+    gameState.lastTime = performance.now(); 
+    document.getElementById("pauseOverlay").classList.add("hidden"); 
+};
+document.getElementById("pauseBtn").onclick = () => { 
+    gameState.paused = true; 
+    document.getElementById("pauseOverlay").classList.remove("hidden"); 
+};
+document.getElementById("resetBtn").onclick = () => location.reload();
 
 canvas.addEventListener('mousedown', (e) => {
     initAudio();
@@ -262,15 +338,17 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 window.addEventListener('mousemove', (e) => {
-    if (gameState.isDragging) {
+    if (gameState.isDragging && !gameState.paused) {
         const rect = canvas.getBoundingClientRect();
         gameState.ringX = (e.clientX - rect.left) * (800 / rect.width);
         gameState.ringY = (e.clientY - rect.top) * (450 / rect.height);
+        
         if (!gameState.isHooked) {
             const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
             const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
             if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 32) {
-                gameState.isHooked = true; playClink(0.2);
+                gameState.isHooked = true; 
+                playClink(0.2);
             }
         }
     }
@@ -279,6 +357,14 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseup', () => gameState.isDragging = false);
 
 window.onload = () => { 
-    canvas.width = 800; canvas.height = 450; init(); 
-    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; loop(); 
+    canvas.width = 800; 
+    canvas.height = 450; 
+    init(); 
+    const loop = () => { 
+        updatePhysics(); 
+        checkWin(); 
+        drawGame(); 
+        requestAnimationFrame(loop); 
+    }; 
+    loop(); 
 };
