@@ -3,46 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stand-by-Me: Night Market Edition</title>
+    <title>Stand-by-Me</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="tutorialOverlay" class="overlay">
         <div class="modal">
             <h2>🏮 Stand-by-Me 🏮</h2>
-            <p>Drag the ring over the red cap to hook the bottle. Pull slowly to stand it up!</p>
-            <p><strong>Warning:</strong> Don't pull too fast or the ring will slip!</p>
+            <p>Master the Night Market challenge! Drag the ring over the red cap to hook it. Pull gently—if the tension is too high, the ring will slip!</p>
             <button id="startBtn" class="menu-btn">START GAME</button>
-        </div>
-    </div>
-
-    <div id="pauseOverlay" class="overlay hidden">
-        <div class="modal">
-            <h2>PAUSED</h2>
-            <button id="resumeBtn" class="menu-btn">RESUME</button>
         </div>
     </div>
 
     <div class="carnival-wrapper">
         <div class="side-decoration"><span>🏮</span><span>夜</span><span>市</span><span>🏮</span></div>
-        
         <div class="game-container">
             <div class="top-bar">
                 <div class="score-box">Points: <span id="score">0</span></div>
-                <div class="score-box">Best: <span id="bestScore">0</span></div>
                 <div class="score-box">Lv: <span id="level">1</span></div>
             </div>
-
+            <div class="header">
+                <h1>Stand-by-Me</h1>
+                <p class="subtitle">TAIWAN NIGHT MARKET SKILL GAME</p>
+            </div>
             <div class="game-board" id="boardFrame">
                 <canvas id="gameCanvas"></canvas>
                 <div class="controls">
                     <button id="pauseBtn" class="icon-btn">⏸</button>
-                    <div class="status-display"><span id="status">Hook the cap!</span></div>
-                    <button id="exitBtn" class="icon-btn">🔄</button>
+                    <div class="status-display"><span id="status">Hook the bottle cap!</span></div>
+                    <button id="resetBtn" class="icon-btn">🔄</button>
                 </div>
             </div>
         </div>
-
         <div class="side-decoration"><span>🏮</span><span>立</span><span>瓶</span><span>🏮</span></div>
     </div>
     <script src="script.js"></script>
