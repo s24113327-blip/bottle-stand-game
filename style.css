@@ -10,18 +10,20 @@ body {
     overflow: hidden;
 }
 
-.game-title {
-    position: absolute;
-    top: -65px;
-    left: 0;
-    width: 100%;
-    text-align: center;
+.game-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.outer-game-title {
     margin: 0;
-    font-size: 2.8rem;
+    font-size: 3.5rem;
     font-weight: 900;
     color: #fff;
-    text-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
-    letter-spacing: 5px;
+    text-shadow: 0 0 15px #10b981, 0 0 30px rgba(16, 185, 129, 0.5);
+    letter-spacing: 10px;
 }
 
 .main-layout {
@@ -31,13 +33,22 @@ body {
     padding: 20px;
     border-radius: 20px;
     border: 4px solid #334155;
-    margin-top: 40px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.6);
 }
 
-.canvas-area { position: relative; width: 800px; height: 450px; }
-#gameCanvas { background: #0f172a; border-radius: 8px; }
+.canvas-area {
+    position: relative;
+    width: 800px;
+    height: 450px;
+}
 
-/* Sidebar & Skins */
+#gameCanvas {
+    background: #0f172a;
+    border-radius: 8px;
+    display: block;
+}
+
+/* Sidebar Styles */
 .sidebar {
     width: 220px;
     background: #0f172a;
@@ -55,7 +66,13 @@ body {
     margin-bottom: 10px;
 }
 
-#levelList { list-style: none; padding: 0; margin: 0; flex-grow: 1; }
+#levelList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+}
+
 .level-item {
     padding: 8px 12px;
     margin-bottom: 5px;
@@ -66,6 +83,7 @@ body {
     justify-content: space-between;
     color: #475569;
 }
+
 .level-item.active { background: #10b981; color: white; font-weight: bold; }
 .level-item.cleared { color: #10b981; border: 1px solid #10b981; }
 
@@ -77,15 +95,21 @@ body {
     text-align: center;
 }
 
-.skin-preview-grid { display: flex; gap: 8px; margin-top: 10px; justify-content: center; }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: #334155; }
-.dot.green.active { background: #10b981; }
-.dot.blue.active { background: #3b82f6; }
-.dot.red.active { background: #ef4444; }
-.dot.black.active { background: #525252; }
-.dot.purple.active { background: #a855f7; }
+.skin-preview-grid {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    justify-content: center;
+}
 
-/* Overlays */
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #334155; transition: 0.3s; }
+.dot.green.active { background: #10b981; box-shadow: 0 0 5px #10b981; }
+.dot.blue.active { background: #3b82f6; box-shadow: 0 0 5px #3b82f6; }
+.dot.red.active { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+.dot.black.active { background: #525252; box-shadow: 0 0 5px #525252; }
+.dot.purple.active { background: #a855f7; box-shadow: 0 0 5px #a855f7; }
+
+/* UI Elements */
 .overlay {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -95,22 +119,44 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 50;
+    border-radius: 8px;
 }
+
 .hidden { display: none !important; }
 
 #status {
     position: absolute;
     top: 15px; left: 15px;
     font-weight: bold;
+    z-index: 10;
 }
 
 #pauseBtn {
     position: absolute;
     top: 15px; right: 45px;
-    background: transparent; border: 1px solid white; color: white; cursor: pointer;
+    z-index: 10;
+    background: transparent;
+    color: white;
+    border: 1px solid white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.stat-box {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #1e293b;
+    font-size: 0.8rem;
 }
 
 button {
-    background: #10b981; border: none; padding: 10px 20px; color: white;
-    font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px;
+    background: #10b981;
+    border: none;
+    padding: 10px 20px;
+    color: white;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
 }
