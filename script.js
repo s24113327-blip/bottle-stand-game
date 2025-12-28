@@ -2,7 +2,6 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let audioCtx = null;
 
-// FORCE RESUME AUDIO: Browsers block sound until a click happens
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -43,14 +42,7 @@ const gameState = {
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
     baseVelocity: 0, confetti: [], smoke: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
-    currentPalette: ["#064e3b", "#10b981", "#064e3b"],
-    skins: {
-        1: ["#064e3b", "#10b981", "#064e3b"],
-        5: ["#1e3a8a", "#3b82f6", "#1e3a8a"],
-        10: ["#7f1d1d", "#ef4444", "#7f1d1d"],
-        15: ["#171717", "#525252", "#171717"],
-        20: ["#4c1d95", "#a855f7", "#4c1d95"]
-    }
+    currentPalette: ["#064e3b", "#10b981", "#064e3b"]
 };
 
 function updateSmoke() {
@@ -102,11 +94,13 @@ function updatePhysics() {
     const gravity = 0.05 + (Math.min(gameState.level, 20) * 0.005); 
     const friction = 0.95;
 
+    // The bottle is 170px long. 
+    // We calculate the tip (cap) position for hooking logic
+    const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
+    const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
+
     if (gameState.isHooked) {
-        const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-        const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
         const dist = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
-        
         if (dist > 75) {
             gameState.isHooked = false; 
             playClink(0.1, 400);
@@ -138,44 +132,42 @@ function updatePhysics() {
 function drawGame() {
     ctx.clearRect(0, 0, 800, 450);
 
-    // 1. Table Line
+    // 1. Neon Table Line
     ctx.shadowBlur = 15;
     ctx.shadowColor = "#00f2ff";
     ctx.fillStyle = "#00f2ff"; 
     ctx.fillRect(0, 350, 800, 4);
     ctx.shadowBlur = 0;
 
-    // 2. Pivot/Shadow
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
-    ctx.beginPath();
-    ctx.arc(gameState.bottleBaseX, 350, 5, 0, Math.PI*2);
-    ctx.fill();
-
-    // 3. Bottle Drawing
+    // 2. Bottle Drawing
     ctx.save();
+    // Move to table line
     ctx.translate(gameState.bottleBaseX, 350); 
     ctx.rotate(gameState.bottleAngle);
     
     ctx.shadowBlur = 20;
     ctx.shadowColor = gameState.currentPalette[1];
     
-    const grad = ctx.createLinearGradient(0, -20, 0, 20);
+    const grad = ctx.createLinearGradient(0, -42, 0, 0);
     grad.addColorStop(0, gameState.currentPalette[0]); 
     grad.addColorStop(0.5, gameState.currentPalette[1]); 
     grad.addColorStop(1, gameState.currentPalette[2]);
     
     ctx.fillStyle = grad;
-    // Draw body (centered on the pivot Y)
-    ctx.roundRect(0, -21, 130, 42, 8);
+    
+    // FIX: Draw the bottle from Y: -42 to 0. 
+    // This makes the bottle "sit" on top of the pivot point (the line).
+    // Body
+    ctx.roundRect(0, -42, 130, 42, 8);
     ctx.fill();
     // Neck
-    ctx.fillRect(130, -10, 40, 20);
+    ctx.fillRect(130, -31, 40, 20);
     // Cap
     ctx.fillStyle = "#ff4444"; 
-    ctx.fillRect(170, -12, 10, 24);
+    ctx.fillRect(170, -33, 10, 24);
     ctx.restore();
 
-    // 4. Rope & Ring
+    // 3. Rope & Ring
     ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; 
     ctx.lineWidth = 2;
     ctx.beginPath(); 
@@ -189,7 +181,7 @@ function drawGame() {
     ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); 
     ctx.stroke();
 
-    // 5. Confetti
+    // 4. Confetti
     gameState.confetti.forEach(p => { 
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); 
     });
@@ -205,7 +197,7 @@ function triggerGameOver(reason) {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
-    // Win angle (standing upright is approx -1.57 radians)
+    // Stand detection (roughly vertical)
     if (gameState.bottleAngle <= -1.45 && Math.abs(gameState.baseVelocity) < 0.4) {
         gameState.hasWon = true; 
         gameState.score += 100; 
@@ -223,7 +215,7 @@ function checkWin() {
     }
 }
 
-// UI HANDLERS
+// UI Handlers with Audio Resume
 document.getElementById("startBtn").onclick = () => {
     initAudio(); 
     gameState.paused = false;
@@ -255,6 +247,7 @@ window.addEventListener('mousemove', (e) => {
         gameState.ringY = (e.clientY - rect.top) * (450 / rect.height);
         
         if (!gameState.isHooked) {
+            // Check for hook at the cap position
             const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
             const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
             if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 30) {
