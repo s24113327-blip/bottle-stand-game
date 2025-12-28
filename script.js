@@ -2,7 +2,7 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-// Audio Helpers
+// Audio System
 function playClink(v = 0.1, f = 1200) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const o = audioCtx.createOscillator();
@@ -29,9 +29,9 @@ function playWinSound() {
 const gameState = {
     paused: true, gameOver: false, hasWon: false,
     level: 1, score: 0, bestScore: localStorage.getItem("standByMeBest") || 0,
-    bottleAngle: 0, bottleBaseX: 0, originalBaseX: 320, bottleBaseY: 350, // Height fixed here
+    bottleAngle: 0, bottleBaseX: 320, originalBaseX: 320, bottleBaseY: 352,
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
-    baseVelocity: 0, wind: 0, confetti: [],
+    baseVelocity: 0, confetti: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
     currentPalette: ["#064e3b", "#10b981", "#064e3b"],
     skins: {
@@ -54,7 +54,7 @@ function checkObjectives() {
     const skinText = document.getElementById("skinStatus");
     const targets = {5:"Sapphire", 10:"Ruby", 15:"Obsidian", 20:"Royal"};
     let next = Object.keys(targets).find(lv => lv > gameState.level);
-    skinText.innerHTML = next ? `Next: Lv ${next} ${targets[next]}` : "✨ Max Skins!";
+    skinText.innerHTML = next ? `Next: Lv ${next} ${targets[next]}` : "✨ MAX SKINS";
 
     document.querySelectorAll('.dot').forEach((dot, idx) => {
         const thresholds = [1, 5, 10, 15, 20];
@@ -68,20 +68,18 @@ function updateLevelSidebar() {
     for (let i = 1; i <= Math.max(5, gameState.level + 2); i++) {
         const li = document.createElement("li");
         li.className = "level-item" + (i < gameState.level ? " cleared" : (i === gameState.level ? " active" : ""));
-        li.innerHTML = `<span>Level ${i}</span> <span>${i < gameState.level ? '✓' : (i === gameState.level ? 'LIVE' : '🔒')}</span>`;
+        li.innerHTML = `<span>LV ${i}</span> <span>${i < gameState.level ? '✓' : (i === gameState.level ? 'LIVE' : '🔒')}</span>`;
         list.appendChild(li);
     }
 }
 
 function init() {
     gameState.bottleBaseX = gameState.originalBaseX;
-    gameState.bottleBaseY = 350; // Bottle position
     gameState.score = 0; gameState.level = 1;
-    gameState.gameOver = false; gameState.timeLeft = 20;
-    gameState.maxTime = 20;
-    document.getElementById("bestScore").textContent = gameState.bestScore;
+    gameState.gameOver = false; gameState.timeLeft = 20; gameState.maxTime = 20;
     document.getElementById("score").textContent = "0";
     document.getElementById("level").textContent = "1";
+    document.getElementById("bestScore").textContent = gameState.bestScore;
     updateLevelSidebar();
     checkObjectives();
     resetRing();
@@ -92,11 +90,6 @@ function resetRing() {
     gameState.ringX = 400; gameState.ringY = 150;
 }
 
-function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
-    return { x: (e.clientX - rect.left) * (800 / rect.width), y: (e.clientY - rect.top) * (450 / rect.height) };
-}
-
 function updatePhysics() {
     if (gameState.hasWon || gameState.paused || gameState.gameOver) return;
     const now = performance.now();
@@ -104,18 +97,15 @@ function updatePhysics() {
     gameState.lastTime = now;
     gameState.timeLeft -= dt;
 
-    if (gameState.timeLeft <= 0) {
-        gameState.timeLeft = 0;
-        triggerGameOver("TIME'S UP!");
-    }
+    if (gameState.timeLeft <= 0) triggerGameOver("TIME'S UP!");
 
     const statusEl = document.getElementById("status");
-    statusEl.textContent = gameState.isHooked ? "STEADY..." : "Hook the Cap!";
+    statusEl.textContent = gameState.isHooked ? "STEADY..." : "HOOK THE CAP";
     statusEl.style.color = (gameState.timeLeft < 5 && Math.floor(now / 200) % 2 === 0) ? "#ff4444" : "white";
 
     const levelMod = Math.min(gameState.level, 20);
-    const gravity = 0.035 + (levelMod * 0.003); 
-    const friction = 0.95;
+    const gravity = 0.038 + (levelMod * 0.003); 
+    const friction = 0.96;
 
     if (gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
@@ -150,16 +140,29 @@ function drawGame() {
     ctx.clearRect(0, 0, 800, 450);
     ctx.globalAlpha = 1.0; 
 
-    // Timer Bar
+    // Timer Bar UI
     const prog = gameState.timeLeft / gameState.maxTime;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-    ctx.fillRect(775, 125, 10, 200);
-    ctx.fillStyle = prog > 0.5 ? "#10b981" : (prog > 0.25 ? "#fbbf24" : "#ef4444");
-    ctx.fillRect(775, 125 + (200 * (1 - prog)), 10, 200 * prog);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.fillRect(780, 125, 8, 200);
+    ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
+    ctx.fillRect(780, 125 + (200 * (1 - prog)), 8, 200 * prog);
 
-    // Table line - Fixed height
-    ctx.fillStyle = "#334155"; 
+    // Platform
+    ctx.fillStyle = "#1e293b"; 
     ctx.fillRect(0, gameState.bottleBaseY + 22, 800, 4);
+
+    // DYNAMIC CONTACT SHADOW
+    ctx.save();
+    ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY + 22);
+    let shadowWidth = 90 + Math.abs(gameState.bottleAngle) * 60;
+    let shadowAlpha = 0.5 - Math.abs(gameState.bottleAngle) * 0.25;
+    let shadowGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, shadowWidth / 2);
+    shadowGrad.addColorStop(0, `rgba(0, 0, 0, ${shadowAlpha})`);
+    shadowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = shadowGrad;
+    ctx.scale(1, 0.2); 
+    ctx.beginPath(); ctx.arc(0, 0, shadowWidth / 2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
 
     // Bottle
     ctx.save();
@@ -170,32 +173,20 @@ function drawGame() {
     g.addColorStop(0.4, gameState.currentPalette[1]); 
     g.addColorStop(1, gameState.currentPalette[2]);
     ctx.fillStyle = g;
-    ctx.fillRect(0, -21, 130, 42); 
-    ctx.fillRect(130, -8, 40, 16);
-    ctx.fillStyle = "#ef4444"; 
-    ctx.fillRect(170, -10, 10, 20);
+    ctx.fillRect(0, -21, 130, 42); ctx.fillRect(130, -8, 40, 16);
+    ctx.fillStyle = "#ef4444"; ctx.fillRect(170, -10, 10, 20);
     ctx.restore();
 
-    // Rope
-    ctx.strokeStyle = gameState.isHooked ? "#fbbf24" : "#475569"; 
-    ctx.lineWidth = 3;
-    ctx.beginPath(); 
-    ctx.moveTo(400, 0);
+    // Rope & Ring
+    ctx.strokeStyle = gameState.isHooked ? "#ffeb3b" : "#444"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(400, 0);
     ctx.quadraticCurveTo((400 + gameState.ringX)/2, (gameState.ringY)/2 + 30, gameState.ringX, gameState.ringY);
     ctx.stroke();
+    ctx.strokeStyle = gameState.isHooked ? "#ff007f" : "#fff"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
-    // Ring
-    ctx.strokeStyle = gameState.isHooked ? "#ff007f" : "#fff"; 
-    ctx.lineWidth = 5;
-    ctx.beginPath(); 
-    ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); 
-    ctx.stroke();
-
-    // Particles
     gameState.confetti.forEach(p => { 
-        ctx.fillStyle = p.color; 
-        ctx.globalAlpha = p.life; 
-        ctx.fillRect(p.x, p.y, 4, 4); 
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 4, 4); 
     });
     ctx.globalAlpha = 1.0;
 }
@@ -209,61 +200,45 @@ function triggerGameOver(reason) {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
-    // Win condition: Bottle is upright and slow enough
-    if (gameState.bottleAngle <= -1.5 && Math.abs(gameState.baseVelocity) < 0.25) {
-        gameState.hasWon = true; 
-        gameState.score += 100; 
-        playWinSound();
+    if (gameState.bottleAngle <= -1.52 && Math.abs(gameState.baseVelocity) < 0.25) {
+        gameState.hasWon = true; gameState.score += 100; playWinSound();
         document.getElementById("score").textContent = gameState.score;
-        
         if (gameState.score > gameState.bestScore) {
             gameState.bestScore = gameState.score;
             localStorage.setItem("standByMeBest", gameState.bestScore);
             document.getElementById("bestScore").textContent = gameState.bestScore;
         }
-
-        for(let i=0; i<40; i++) {
-            gameState.confetti.push({
-                x: gameState.bottleBaseX, y: 250, 
-                vx: (Math.random()-0.5)*10, vy: -Math.random()*10, 
-                color: `hsl(${Math.random()*360},100%,50%)`, life: 1
-            });
-        }
-        
+        for(let i=0; i<40; i++) gameState.confetti.push({x: gameState.bottleBaseX, y: 250, vx: (Math.random()-0.5)*10, vy: -Math.random()*10, color: `hsl(${Math.random()*360},100%,50%)`, life: 1});
         setTimeout(() => {
-            gameState.hasWon = false; 
-            gameState.level++;
+            gameState.hasWon = false; gameState.level++;
             document.getElementById("level").textContent = gameState.level;
-            gameState.bottleAngle = 0; 
-            gameState.bottleBaseX = gameState.originalBaseX;
-            gameState.maxTime = Math.max(20 - (gameState.level - 1), 10);
+            gameState.bottleAngle = 0; gameState.bottleBaseX = gameState.originalBaseX;
+            gameState.maxTime = Math.max(20 - (gameState.level - 1), 8);
             gameState.timeLeft = gameState.maxTime;
             gameState.lastTime = performance.now();
-            checkObjectives();
-            updateLevelSidebar();
-            resetRing();
+            checkObjectives(); updateLevelSidebar(); resetRing();
         }, 2000);
     }
 }
 
 // Controls
 canvas.addEventListener('mousedown', (e) => {
-    if (gameState.paused || gameState.gameOver || gameState.hasWon) return;
-    const pos = getMousePos(e);
-    if (Math.hypot(pos.x - gameState.ringX, pos.y - gameState.ringY) < 55) gameState.isDragging = true;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (800 / rect.width);
+    const y = (e.clientY - rect.top) * (450 / rect.height);
+    if (Math.hypot(x - gameState.ringX, y - gameState.ringY) < 55) gameState.isDragging = true;
 });
 
 window.addEventListener('mousemove', (e) => {
     if (gameState.isDragging) {
-        const pos = getMousePos(e);
-        gameState.ringX = pos.x; 
-        gameState.ringY = pos.y;
+        const rect = canvas.getBoundingClientRect();
+        gameState.ringX = (e.clientX - rect.left) * (800 / rect.width);
+        gameState.ringY = (e.clientY - rect.top) * (450 / rect.height);
         if (!gameState.isHooked) {
             const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
             const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
             if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 32) {
-                gameState.isHooked = true; 
-                playClink(0.2);
+                gameState.isHooked = true; playClink(0.2);
             }
         }
     }
@@ -271,42 +246,13 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', () => gameState.isDragging = false);
 
-// UI Listeners
-document.getElementById("startBtn").onclick = () => { 
-    document.getElementById("tutorialOverlay").classList.add("hidden"); 
-    gameState.paused = false; 
-    gameState.lastTime = performance.now();
-    init(); 
-};
-
-document.getElementById("restartBtn").onclick = () => { 
-    document.getElementById("gameOverOverlay").classList.add("hidden"); 
-    init(); 
-    gameState.paused = false; 
-    gameState.lastTime = performance.now();
-};
-
-document.getElementById("pauseBtn").onclick = () => { 
-    gameState.paused = true; 
-    document.getElementById("pauseOverlay").classList.remove("hidden"); 
-};
-
-document.getElementById("resumeBtn").onclick = () => { 
-    gameState.paused = false; 
-    gameState.lastTime = performance.now(); 
-    document.getElementById("pauseOverlay").classList.add("hidden"); 
-};
-
+document.getElementById("startBtn").onclick = () => { document.getElementById("tutorialOverlay").classList.add("hidden"); gameState.paused = false; gameState.lastTime = performance.now(); init(); };
+document.getElementById("restartBtn").onclick = () => { document.getElementById("gameOverOverlay").classList.add("hidden"); init(); gameState.paused = false; gameState.lastTime = performance.now(); };
+document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
+document.getElementById("resumeBtn").onclick = () => { gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
 document.getElementById("resetBtn").onclick = () => location.reload();
 
 window.onload = () => { 
-    canvas.width = 800; canvas.height = 450; 
-    init(); 
-    const loop = () => { 
-        updatePhysics(); 
-        checkWin(); 
-        drawGame(); 
-        requestAnimationFrame(loop); 
-    }; 
-    loop(); 
+    canvas.width = 800; canvas.height = 450; init(); 
+    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; loop(); 
 };
