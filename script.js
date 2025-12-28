@@ -1,109 +1,101 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// --- AUDIO ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-function playClink(volume = 0.1, freq = 1200) {
+function playClink(v = 0.1, f = 1200) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
-    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.frequency.setValueAtTime(f, audioCtx.currentTime);
+    g.gain.setValueAtTime(v, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.1);
 }
 
 function playWinSound() {
-    const notes = [523.25, 659.25, 783.99, 1046.50];
-    notes.forEach((freq, i) => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.12);
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime + i * 0.12);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.12 + 0.4);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(audioCtx.currentTime + i * 0.12);
-        osc.stop(audioCtx.currentTime + i * 0.12 + 0.4);
+    [523, 659, 783, 1046].forEach((f, i) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.frequency.setValueAtTime(f, audioCtx.currentTime + i * 0.1);
+        g.gain.setValueAtTime(0.05, audioCtx.currentTime + i * 0.1);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.3);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(audioCtx.currentTime + i * 0.1); o.stop(audioCtx.currentTime + i * 0.1 + 0.3);
     });
 }
 
-// --- GAME STATE ---
 const gameState = {
-    paused: true,
-    gameOver: false,
-    level: 1,
-    score: 0,
+    paused: true, gameOver: false, level: 1, score: 0,
     bestScore: localStorage.getItem("standByMeBest") || 0,
-    bottleAngle: 0,
-    bottleBaseX: 0,
-    originalBaseX: 0,
-    bottleBaseY: 0,
-    ringX: 400,
-    ringY: 150,
-    isDragging: false,
-    isHooked: false,
-    hasWon: false,
-    baseVelocity: 0,
-    wind: 0,
-    confetti: [],
-    timeLeft: 20,
-    maxTime: 20, // To calculate bar percentage
-    lastTime: 0
+    bottleAngle: 0, bottleBaseX: 0, originalBaseX: 0, bottleBaseY: 0,
+    ringX: 400, ringY: 150, isDragging: false, isHooked: false,
+    hasWon: false, baseVelocity: 0, wind: 0, confetti: [],
+    timeLeft: 20, maxTime: 20, lastTime: 0
 };
 
 document.getElementById("bestScore").textContent = gameState.bestScore;
 
 function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
     return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
     };
 }
 
+// --- NEW: SIDEBAR UI UPDATER ---
+function updateLevelSidebar() {
+    const list = document.getElementById("levelList");
+    list.innerHTML = "";
+    // Show 5 levels relative to current
+    for (let i = 1; i <= Math.max(5, gameState.level + 2); i++) {
+        const li = document.createElement("li");
+        li.className = "level-item";
+        if (i < gameState.level) {
+            li.classList.add("cleared");
+            li.innerHTML = `<span>Lv ${i}</span> <span>✓</span>`;
+        } else if (i === gameState.level) {
+            li.classList.add("active");
+            li.innerHTML = `<span>Lv ${i}</span> <span>PLAYING</span>`;
+        } else {
+            li.classList.add("locked");
+            li.innerHTML = `<span>Lv ${i}</span> <span>🔒</span>`;
+        }
+        list.appendChild(li);
+    }
+}
+
 function init() {
-    canvas.width = 800;
-    canvas.height = 450;
+    canvas.width = 800; canvas.height = 450;
     gameState.originalBaseX = canvas.width / 2 - 80;
     gameState.bottleBaseX = gameState.originalBaseX;
     gameState.bottleBaseY = canvas.height * 0.82;
-    gameState.score = 0;
-    gameState.level = 1;
-    gameState.gameOver = false;
-    gameState.hasWon = false;
-    gameState.baseVelocity = 0;
-    gameState.bottleAngle = 0;
-    gameState.maxTime = 20;
-    gameState.timeLeft = 20;
+    gameState.score = 0; gameState.level = 1;
+    gameState.gameOver = false; gameState.hasWon = false;
+    gameState.baseVelocity = 0; gameState.bottleAngle = 0;
+    gameState.maxTime = 20; gameState.timeLeft = 20;
     gameState.lastTime = performance.now();
     document.getElementById("score").textContent = "0";
     document.getElementById("level").textContent = "1";
+    updateLevelSidebar();
     resetRing();
 }
 
 function resetRing() {
-    gameState.isHooked = false;
-    gameState.isDragging = false;
-    gameState.ringX = canvas.width / 2;
-    gameState.ringY = 150;
+    gameState.isHooked = false; gameState.isDragging = false;
+    gameState.ringX = canvas.width / 2; gameState.ringY = 150;
 }
 
 function handleMovement(pos) {
     if (!gameState.isDragging || gameState.paused || gameState.hasWon || gameState.gameOver) return;
-    gameState.ringX = pos.x;
-    gameState.ringY = pos.y;
+    gameState.ringX = pos.x; gameState.ringY = pos.y;
     if (!gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
         if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 35) {
-            gameState.isHooked = true;
-            playClink(0.2);
+            gameState.isHooked = true; playClink(0.2);
         }
     }
 }
@@ -116,23 +108,18 @@ function updatePhysics() {
     gameState.lastTime = now;
     gameState.timeLeft -= dt;
 
-    if (gameState.timeLeft <= 0) {
-        gameState.timeLeft = 0;
-        triggerGameOver("TIME'S UP!");
-    }
+    if (gameState.timeLeft <= 0) triggerGameOver("TIME'S UP!");
 
-    // Status logic with blinking effect
     const statusEl = document.getElementById("status");
     if (gameState.timeLeft < 5 && Math.floor(now / 200) % 2 === 0) {
         statusEl.style.color = "#ff4444";
-        statusEl.textContent = `CRITICAL TIME: ${Math.ceil(gameState.timeLeft)}s!`;
+        statusEl.textContent = `CRITICAL: ${Math.ceil(gameState.timeLeft)}s`;
     } else {
         statusEl.style.color = "white";
         statusEl.textContent = gameState.isHooked ? "STEADY..." : "Hook the cap!";
     }
 
     gameState.wind += 0.02;
-
     const levelMod = Math.min(gameState.level, 20);
     const gravity = 0.035 + (levelMod * 0.003); 
     const friction = Math.min(0.92 + (levelMod * 0.002), 0.98); 
@@ -141,17 +128,12 @@ function updatePhysics() {
     if (gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
-        const tension = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
-
-        if (tension > slipThreshold) {
-            gameState.isHooked = false;
-            playClink(0.1, 400);
+        if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) > slipThreshold) {
+            gameState.isHooked = false; playClink(0.1, 400);
         } else {
-            const targetAngle = Math.atan2(gameState.ringY - gameState.bottleBaseY, gameState.ringX - gameState.bottleBaseX);
-            gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * 0.07;
-            const uprightFactor = Math.abs(Math.sin(gameState.bottleAngle)); 
-            const horizontalPull = (gameState.ringX - capX) * 0.04;
-            gameState.baseVelocity += horizontalPull * (1 + uprightFactor);
+            const target = Math.atan2(gameState.ringY - gameState.bottleBaseY, gameState.ringX - gameState.bottleBaseX);
+            gameState.bottleAngle += (target - gameState.bottleAngle) * 0.07;
+            gameState.baseVelocity += (gameState.ringX - capX) * 0.04 * (1 + Math.abs(Math.sin(gameState.bottleAngle)));
         }
     } else {
         if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
@@ -163,18 +145,10 @@ function updatePhysics() {
             else { gameState.bottleBaseX = gameState.originalBaseX; gameState.baseVelocity = 0; }
         }
     }
-
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= friction;
 
-    if (isNaN(gameState.bottleBaseX)) {
-        gameState.bottleBaseX = gameState.originalBaseX;
-        gameState.baseVelocity = 0;
-    }
-
-    if (gameState.bottleBaseX < -60 || gameState.bottleBaseX > canvas.width + 60) {
-        triggerGameOver("BOTTLE FELL!");
-    }
+    if (gameState.bottleBaseX < -60 || gameState.bottleBaseX > canvas.width + 60) triggerGameOver("BOTTLE FELL!");
 
     gameState.confetti.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
@@ -184,7 +158,6 @@ function updatePhysics() {
 
 function triggerGameOver(reason = "GAME OVER") {
     gameState.gameOver = true;
-    gameState.isDragging = false;
     playClink(0.3, 100);
     document.querySelector("#gameOverOverlay h2").textContent = reason;
     document.getElementById("finalScore").textContent = gameState.score;
@@ -195,40 +168,16 @@ function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.globalAlpha = 1.0; 
 
-    // --- SIDE TIMER BAR ---
-    const barWidth = 15;
-    const barHeight = 200;
-    const barX = canvas.width - 40;
-    const barY = (canvas.height / 2) - (barHeight / 2);
-    const progress = gameState.timeLeft / gameState.maxTime;
-    
-    // Bar Background
+    // Timer Bar
+    const prog = gameState.timeLeft / gameState.maxTime;
     ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-    ctx.fillRect(barX, barY, barWidth, barHeight);
-    
-    // Bar Foreground (Color based on time)
-    let color = "#10b981"; // Green
-    if (progress < 0.5) color = "#fbbf24"; // Yellow
-    if (progress < 0.25) color = "#ef4444"; // Red
-    ctx.fillStyle = color;
-    ctx.fillRect(barX, barY + (barHeight * (1 - progress)), barWidth, barHeight * progress);
-    
+    ctx.fillRect(canvas.width - 30, 125, 10, 200);
+    ctx.fillStyle = prog > 0.5 ? "#10b981" : (prog > 0.25 ? "#fbbf24" : "#ef4444");
+    ctx.fillRect(canvas.width - 30, 125 + (200 * (1 - prog)), 10, 200 * prog);
+
     // Table
-    ctx.strokeStyle = `#334155`;
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = `#334155`; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, gameState.bottleBaseY + 22); ctx.lineTo(canvas.width, gameState.bottleBaseY + 22); ctx.stroke();
-
-    // Shadow
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-    ctx.beginPath(); ctx.ellipse(gameState.bottleBaseX, gameState.bottleBaseY + 20, 50, 10, 0, 0, Math.PI * 2); ctx.fill();
-
-    // Rope
-    const sway = Math.sin(gameState.wind) * 15;
-    ctx.strokeStyle = gameState.isHooked ? "#fbbf24" : "#475569"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(canvas.width / 2, 20);
-    const cpX = (canvas.width/2 + gameState.ringX)/2 + (gameState.isHooked ? 0 : sway);
-    const cpY = (20 + gameState.ringY)/2 + (gameState.isHooked ? -10 : 30);
-    ctx.quadraticCurveTo(cpX, cpY, gameState.ringX, gameState.ringY); ctx.stroke();
 
     // Bottle
     ctx.save();
@@ -237,26 +186,22 @@ function drawGame() {
     const g = ctx.createLinearGradient(0, -20, 0, 20);
     g.addColorStop(0, "#064e3b"); g.addColorStop(0.4, "#10b981"); g.addColorStop(1, "#064e3b");
     ctx.fillStyle = g;
-    ctx.beginPath(); 
-    ctx.rect(0, -21, 130, 42); 
-    ctx.fill();
-    ctx.fillRect(130, -8, 40, 16);
-    ctx.fillStyle = "#ef4444"; 
-    ctx.beginPath(); ctx.rect(170, -10, 10, 20); ctx.fill();
+    ctx.fillRect(0, -21, 130, 42); ctx.fillRect(130, -8, 40, 16);
+    ctx.fillStyle = "#ef4444"; ctx.fillRect(170, -10, 10, 20);
     ctx.restore();
 
-    // Ring
-    const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-    const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
-    const tension = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
-    ctx.strokeStyle = (gameState.isHooked && tension > 40) ? "#ff4444" : (gameState.isHooked ? "#ff007f" : "#fff");
-    ctx.lineWidth = 5;
+    // Rope & Ring
+    const sway = Math.sin(gameState.wind) * 15;
+    ctx.strokeStyle = gameState.isHooked ? "#fbbf24" : "#475569"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(canvas.width / 2, 20);
+    ctx.quadraticCurveTo((canvas.width/2 + gameState.ringX)/2, (20 + gameState.ringY)/2 + (gameState.isHooked ? -10 : 30), gameState.ringX, gameState.ringY);
+    ctx.stroke();
+
+    ctx.strokeStyle = gameState.isHooked ? "#ff007f" : "#fff"; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
-    // Confetti
     gameState.confetti.forEach(p => {
-        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; 
-        ctx.fillRect(p.x, p.y, 4, 4);
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 4, 4);
     });
     ctx.globalAlpha = 1.0;
 }
@@ -264,82 +209,41 @@ function drawGame() {
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
     if (gameState.bottleAngle <= -Math.PI/2 * 0.96 && Math.abs(gameState.baseVelocity) < 0.25) {
-        gameState.hasWon = true;
-        gameState.isHooked = false;
-        gameState.isDragging = false;
-        gameState.baseVelocity = 0;
-        gameState.score += 100;
-        playWinSound();
+        gameState.hasWon = true; gameState.isHooked = false; gameState.baseVelocity = 0;
+        gameState.score += 100; playWinSound();
         document.getElementById("score").textContent = gameState.score;
         if (gameState.score > gameState.bestScore) {
             gameState.bestScore = gameState.score;
             localStorage.setItem("standByMeBest", gameState.bestScore);
             document.getElementById("bestScore").textContent = gameState.bestScore;
         }
-        for(let i=0; i<40; i++) {
-            gameState.confetti.push({
-                x: gameState.bottleBaseX, y: gameState.bottleBaseY - 120,
-                vx: (Math.random()-0.5)*12, vy: -Math.random()*10-5, color: `hsl(${Math.random()*360}, 100%, 50%)`, life: 1
-            });
-        }
+        for(let i=0; i<40; i++) gameState.confetti.push({x: gameState.bottleBaseX, y: gameState.bottleBaseY - 120, vx: (Math.random()-0.5)*12, vy: -Math.random()*10-5, color: `hsl(${Math.random()*360}, 100%, 50%)`, life: 1});
+        
         setTimeout(() => {
-            gameState.hasWon = false;
-            gameState.level++;
+            gameState.hasWon = false; gameState.level++;
             document.getElementById("level").textContent = gameState.level;
-            gameState.bottleAngle = 0;
-            gameState.bottleBaseX = gameState.originalBaseX;
-            gameState.baseVelocity = 0;
+            gameState.bottleAngle = 0; gameState.bottleBaseX = gameState.originalBaseX;
             gameState.maxTime = Math.max(20 - (gameState.level - 1), 10);
             gameState.timeLeft = gameState.maxTime;
             gameState.lastTime = performance.now();
+            updateLevelSidebar(); // Refresh sidebar!
             resetRing();
         }, 2000);
     }
 }
 
-// --- CONTROLS ---
 canvas.addEventListener('mousedown', (e) => {
     if (gameState.paused || gameState.gameOver || gameState.hasWon) return;
     const pos = getMousePos(e);
-    if (Math.hypot(pos.x - gameState.ringX, pos.y - gameState.ringY) < 60) {
-        gameState.isDragging = true;
-    }
+    if (Math.hypot(pos.x - gameState.ringX, pos.y - gameState.ringY) < 60) gameState.isDragging = true;
 });
+window.addEventListener('mousemove', (e) => { if (gameState.isDragging) handleMovement(getMousePos(e)); });
+window.addEventListener('mouseup', () => { gameState.isDragging = false; });
 
-window.addEventListener('mousemove', (e) => {
-    if (gameState.isDragging) {
-        handleMovement(getMousePos(e));
-    }
-});
-
-window.addEventListener('mouseup', () => {
-    gameState.isDragging = false;
-});
-
-// UI Buttons
-document.getElementById("startBtn").onclick = () => {
-    document.getElementById("tutorialOverlay").classList.add("hidden");
-    gameState.paused = false;
-    init();
-};
-document.getElementById("restartBtn").onclick = () => {
-    document.getElementById("gameOverOverlay").classList.add("hidden");
-    init();
-    gameState.paused = false;
-};
-document.getElementById("pauseBtn").onclick = () => {
-    gameState.paused = true;
-    document.getElementById("pauseOverlay").classList.remove("hidden");
-};
-document.getElementById("resumeBtn").onclick = () => {
-    gameState.paused = false;
-    gameState.lastTime = performance.now();
-    document.getElementById("pauseOverlay").classList.add("hidden");
-};
+document.getElementById("startBtn").onclick = () => { document.getElementById("tutorialOverlay").classList.add("hidden"); gameState.paused = false; init(); };
+document.getElementById("restartBtn").onclick = () => { document.getElementById("gameOverOverlay").classList.add("hidden"); init(); gameState.paused = false; };
+document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
+document.getElementById("resumeBtn").onclick = () => { gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
 document.getElementById("resetBtn").onclick = () => location.reload();
 
-window.onload = () => {
-    init();
-    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); };
-    loop();
-};
+window.onload = () => { init(); const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; loop(); };
