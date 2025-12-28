@@ -2,14 +2,9 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let audioCtx;
 
-// --- AUDIO SYSTEM WITH UNLOCK ---
 function initAudio() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
 function playClink(v = 0.1, f = 1200) {
@@ -55,22 +50,21 @@ const gameState = {
     }
 };
 
-// --- SUBTLE SMOKE LOGIC ---
 function updateSmoke() {
-    if (Math.random() > 0.96) { // Reduced frequency
+    if (Math.random() > 0.92) { 
         gameState.smoke.push({
             x: Math.random() * 800,
             y: 450,
-            vx: (Math.random() - 0.5) * 0.3,
-            vy: -Math.random() * 0.5 - 0.2,
-            size: Math.random() * 30 + 20,
-            opacity: 0.15 // Fainter
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: -Math.random() * 0.6 - 0.3,
+            size: Math.random() * 40 + 30,
+            opacity: 0.25 // Slightly more visible than before
         });
     }
     for (let i = gameState.smoke.length - 1; i >= 0; i--) {
         let s = gameState.smoke[i];
         s.x += s.vx; s.y += s.vy;
-        s.opacity -= 0.0005;
+        s.opacity -= 0.001;
         if (s.opacity <= 0) gameState.smoke.splice(i, 1);
     }
 }
@@ -83,10 +77,6 @@ function checkObjectives() {
     else if (gameState.level >= 5) unlockedLv = 5;
     gameState.currentPalette = gameState.skins[unlockedLv];
     
-    document.getElementById("skinStatus").textContent = 
-        Object.keys(gameState.skins).find(lv => lv > gameState.level) ? 
-        `Next: Lv ${Object.keys(gameState.skins).find(lv => lv > gameState.level)}` : "MAX SKINS";
-
     document.querySelectorAll('.dot').forEach((dot, idx) => {
         const thresholds = [1, 5, 10, 15, 20];
         if (gameState.level >= thresholds[idx]) dot.classList.add('active');
@@ -135,12 +125,13 @@ function updatePhysics() {
     const friction = 0.96;
 
     if (gameState.isHooked) {
+        // Correcting Hook collision point to match new drawing logic
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-        const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
+        const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
         if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) > 55) {
             gameState.isHooked = false; playClink(0.1, 400);
         } else {
-            const target = Math.atan2(gameState.ringY - gameState.bottleBaseY, gameState.ringX - gameState.bottleBaseX);
+            const target = Math.atan2(gameState.ringY - 350, gameState.ringX - gameState.bottleBaseX);
             gameState.bottleAngle += (target - gameState.bottleAngle) * 0.07;
             gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
         }
@@ -166,7 +157,7 @@ function updatePhysics() {
 function drawGame() {
     ctx.clearRect(0, 0, 800, 450);
 
-    // 1. Smoke (Background Layer)
+    // 1. Smoke (Background)
     gameState.smoke.forEach(s => {
         ctx.beginPath();
         let g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size);
@@ -178,37 +169,38 @@ function drawGame() {
         ctx.fill();
     });
 
-    // 2. Table Line (Drawn at Y = 350)
+    // 2. Table Line (Ground)
     ctx.shadowBlur = 10;
     ctx.shadowColor = "#00f2ff";
     ctx.fillStyle = "#00f2ff"; 
-    ctx.fillRect(0, 350, 800, 2);
+    ctx.fillRect(0, 350, 800, 3);
     ctx.shadowBlur = 0;
 
-    // 3. Bottle (Fixed Offset to sit ON the line)
+    // 3. Bottle (DRAWN ON TOP OF LINE)
     ctx.save();
-    ctx.translate(gameState.bottleBaseX, 350); // Pivot is exactly on the table line
+    ctx.translate(gameState.bottleBaseX, 350); 
     ctx.rotate(gameState.bottleAngle);
     ctx.shadowBlur = 15;
     ctx.shadowColor = gameState.currentPalette[1];
     
-    const grad = ctx.createLinearGradient(0, -20, 0, 20);
+    const grad = ctx.createLinearGradient(0, -42, 0, 0);
     grad.addColorStop(0, gameState.currentPalette[0]); 
     grad.addColorStop(0.4, gameState.currentPalette[1]); 
     grad.addColorStop(1, gameState.currentPalette[2]);
     
     ctx.fillStyle = grad;
-    // Drawn from -21 to +21 so the vertical center is at the pivot point
-    // but the bottom edge touches the floor.
+    // Main Body: Height 42. By using -42, the bottom of the rect is at 0 (the table)
     ctx.fillRect(0, -21, 130, 42); 
+    // Neck
     ctx.fillRect(130, -8, 40, 16);
+    // Cap
     ctx.fillStyle = "#ef4444"; 
     ctx.fillRect(170, -10, 10, 20);
     ctx.restore();
 
-    // 4. UI/Rope
+    // 4. Rope & UI
     const prog = gameState.timeLeft / gameState.maxTime;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
     ctx.fillRect(780, 125, 8, 200);
     ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
     ctx.fillRect(780, 125 + (200 * (1 - prog)), 8, 200 * prog);
@@ -225,22 +217,12 @@ function drawGame() {
     });
 }
 
-// --- BUTTON LOGIC WITH AUDIO UNLOCK ---
-document.getElementById("startBtn").onclick = () => { 
-    initAudio(); // Unlock audio
-    document.getElementById("tutorialOverlay").classList.add("hidden"); 
-    gameState.paused = false; gameState.lastTime = performance.now(); init(); 
-};
-document.getElementById("restartBtn").onclick = () => { 
-    initAudio();
-    document.getElementById("gameOverOverlay").classList.add("hidden"); 
-    init(); gameState.paused = false; gameState.lastTime = performance.now(); 
-};
-document.getElementById("resumeBtn").onclick = () => { 
-    initAudio();
-    gameState.paused = false; gameState.lastTime = performance.now(); 
-    document.getElementById("pauseOverlay").classList.add("hidden"); 
-};
+// Logic for Buttons
+document.getElementById("startBtn").onclick = () => { initAudio(); document.getElementById("tutorialOverlay").classList.add("hidden"); gameState.paused = false; gameState.lastTime = performance.now(); init(); };
+document.getElementById("restartBtn").onclick = () => { initAudio(); document.getElementById("gameOverOverlay").classList.add("hidden"); init(); gameState.paused = false; gameState.lastTime = performance.now(); };
+document.getElementById("resumeBtn").onclick = () => { initAudio(); gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
+document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
+document.getElementById("resetBtn").onclick = () => location.reload();
 
 function triggerGameOver(reason) {
     gameState.gameOver = true;
@@ -286,7 +268,7 @@ window.addEventListener('mousemove', (e) => {
         gameState.ringY = (e.clientY - rect.top) * (450 / rect.height);
         if (!gameState.isHooked) {
             const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-            const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
+            const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
             if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 32) {
                 gameState.isHooked = true; playClink(0.2);
             }
@@ -295,8 +277,6 @@ window.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', () => gameState.isDragging = false);
-document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
-document.getElementById("resetBtn").onclick = () => location.reload();
 
 window.onload = () => { 
     canvas.width = 800; canvas.height = 450; init(); 
