@@ -23,10 +23,10 @@ const gameState = {
     confetti: []
 };
 
+// 1. FIXED: Set dimensions ONCE and don't touch them again
 function setupCanvas() {
-    // Set actual resolution to match display size
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    canvas.width = 880; // Fixed internal resolution
+    canvas.height = 500;
     
     gameState.originalBaseX = canvas.width / 2 - 80;
     gameState.bottleBaseX = gameState.originalBaseX;
@@ -49,14 +49,13 @@ function updatePhysics() {
     gameState.windOffset += 0.03;
 
     const gravity = 0.03 + (gameState.level * 0.01); 
-    const snapDistance = 35; // Locked for consistency
 
     if (gameState.isHooked && gameState.isDragging) {
         const bottleTopX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const bottleTopY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
         const dist = Math.hypot(gameState.ringX - bottleTopX, gameState.ringY - bottleTopY);
         
-        if (dist > snapDistance) { 
+        if (dist > 40) { // Tension limit
             gameState.isHooked = false;
             document.getElementById("status").textContent = "SLIPPED!";
         }
@@ -87,12 +86,10 @@ function updatePhysics() {
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw Blurred Background "Lantern" Glows
+    // NIGHT MARKET GLOW
     ctx.globalAlpha = 0.1;
     ctx.fillStyle = "#ff007f";
     ctx.beginPath(); ctx.arc(50, 50, 100, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#00f3ff";
-    ctx.beginPath(); ctx.arc(canvas.width-50, 80, 80, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1.0;
 
     // ROPE
@@ -110,12 +107,9 @@ function drawGame() {
     ctx.save();
     ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
-
     const glassGrad = ctx.createLinearGradient(0, -20, 0, 20);
     glassGrad.addColorStop(0, "#064e3b"); glassGrad.addColorStop(0.5, "#10b981"); glassGrad.addColorStop(1, "#064e3b");
     ctx.fillStyle = glassGrad;
-    
-    // Body and Shoulder
     ctx.beginPath();
     ctx.roundRect(0, -21, 130, 42, [5, 15, 15, 5]); 
     ctx.moveTo(130, -21);
@@ -123,17 +117,10 @@ function drawGame() {
     ctx.lineTo(155, 10);
     ctx.bezierCurveTo(155, 21, 130, 21, 130, 21);
     ctx.fill();
-
-    // Neck and Cap
     ctx.fillRect(155, -8, 20, 16);
     ctx.fillStyle = "#ef4444";
     ctx.roundRect(175, -11, 8, 22, 2);
     ctx.fill();
-
-    // Reflection Shine
-    ctx.strokeStyle = "rgba(255,255,255,0.2)";
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(10, -14); ctx.lineTo(110, -14); ctx.stroke();
     ctx.restore();
 
     // RING
@@ -143,12 +130,11 @@ function drawGame() {
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, gameState.ringRadius, 0, Math.PI * 2); ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Confetti
+    // CONFETTI
     gameState.confetti.forEach(p => {
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
         ctx.fillRect(p.x, p.y, p.size, p.size);
     });
-    ctx.globalAlpha = 1;
 }
 
 function checkWinCondition() {
@@ -159,6 +145,7 @@ function checkWinCondition() {
         document.getElementById("score").textContent = gameState.score;
         document.getElementById("status").textContent = "STOOD UP! 🏮";
         
+        // Victory Burst
         for(let i=0; i<30; i++) {
             gameState.confetti.push({
                 x: gameState.bottleBaseX + 50, y: gameState.bottleBaseY - 50,
@@ -172,7 +159,7 @@ function checkWinCondition() {
             gameState.level++;
             document.getElementById("level").textContent = gameState.level;
             
-            // Cleanly reset without re-initializing canvas size
+            // RESET PHYSICS VALUES MANUALLY (Don't call setupCanvas again)
             gameState.bottleAngle = 0;
             gameState.baseVelocity = 0;
             gameState.bottleBaseX = gameState.originalBaseX;
@@ -182,20 +169,39 @@ function checkWinCondition() {
     }
 }
 
-// Event Listeners
+// BUTTON LOGIC
+const togglePause = () => {
+    gameState.paused = !gameState.paused;
+    document.getElementById("pauseOverlay").classList.toggle("hidden");
+};
+
+document.getElementById("startBtn").addEventListener("click", () => {
+    document.getElementById("tutorialOverlay").classList.add("hidden");
+    gameState.paused = false;
+});
+
+document.getElementById("pauseBtn").addEventListener("click", togglePause);
+document.getElementById("resumeBtn").addEventListener("click", togglePause);
+document.getElementById("exitBtn").addEventListener("click", () => location.reload());
+
+// INPUT LOGIC
 canvas.addEventListener("mousedown", (e) => {
     if (gameState.paused) return;
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
     if (Math.hypot(mx - gameState.ringX, my - gameState.ringY) < 45) gameState.isDragging = true;
 });
 
 window.addEventListener("mousemove", (e) => {
     if (!gameState.isDragging || gameState.paused) return;
     const rect = canvas.getBoundingClientRect();
-    gameState.ringX = e.clientX - rect.left;
-    gameState.ringY = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    gameState.ringX = (e.clientX - rect.left) * scaleX;
+    gameState.ringY = (e.clientY - rect.top) * scaleY;
 
     const bottleTopX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
     const bottleTopY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
@@ -216,12 +222,6 @@ window.addEventListener("mousemove", (e) => {
 });
 
 window.addEventListener("mouseup", () => gameState.isDragging = false);
-
-document.getElementById("startBtn").addEventListener("click", () => {
-    document.getElementById("tutorialOverlay").classList.add("hidden");
-    gameState.paused = false;
-    setupCanvas();
-});
 
 window.addEventListener("load", () => {
     setupCanvas();
