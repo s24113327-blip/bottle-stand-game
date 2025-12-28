@@ -18,69 +18,47 @@ body {
     overflow: hidden;
 }
 
-/* Updated Wrapper to handle smaller screens */
 .carnival-wrapper { 
     display: flex; 
     align-items: center; 
-    justify-content: center;
     gap: 20px;
     width: 95%;
-    max-width: 1200px;
+    max-height: 95vh;
 }
 
-/* Ensures side lanterns don't overlap the UI */
 .side-decoration {
-    display: flex; flex-direction: column; gap: 10px; font-size: 1.5rem;
+    display: flex; flex-direction: column; gap: 10px; font-size: clamp(1rem, 2vh, 1.8rem);
     background: rgba(15, 23, 42, 0.8); padding: 20px 10px;
     border: 2px solid var(--neon-pink); border-radius: 40px;
     box-shadow: 0 0 15px var(--neon-pink);
-    flex-shrink: 0;
 }
 
 .game-container {
     flex: 1;
-    max-width: 800px; /* Reduced slightly to ensure fit */
+    max-width: 800px;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-/* FIX: Ensure the top bar is never cut off */
-.top-bar { 
-    display: flex; 
-    justify-content: space-between; 
-    gap: 10px;
-    padding-bottom: 5px;
-}
-
+.top-bar { display: flex; justify-content: space-between; gap: 10px; }
 .score-box { 
-    background: #0f172a; 
-    padding: 8px 12px; 
-    border-radius: 8px; 
-    border-bottom: 3px solid var(--neon-blue);
-    flex: 1;
-    font-size: 0.9rem;
-    white-space: nowrap;
+    background: #0f172a; padding: 8px; border-radius: 8px; 
+    border-bottom: 3px solid var(--neon-blue); flex: 1; 
+    text-align: center; font-size: 0.9rem;
 }
 
-.header h1 { 
-    font-size: 2.2rem; 
-    text-shadow: 0 0 15px var(--neon-pink); 
-    line-height: 1;
-}
+.header h1 { font-size: clamp(1.5rem, 4vh, 2.5rem); text-shadow: 0 0 15px var(--neon-pink); }
+.subtitle { color: var(--neon-blue); letter-spacing: 2px; font-size: 0.8rem; }
 
 .game-board {
-    background: #000;
-    border-radius: 15px;
-    padding: 10px;
-    border: 3px solid #334155;
-    position: relative;
+    background: #000; border-radius: 15px; padding: 10px;
+    border: 3px solid #334155; position: relative;
 }
 
 #gameCanvas {
     width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9; /* Keeps drawing area proportional */
+    aspect-ratio: 16 / 9;
     background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
     border-radius: 8px;
     display: block;
@@ -91,14 +69,11 @@ body {
     flex-grow: 1; background: #000; border-radius: 10px;
     border: 2px solid var(--neon-blue); color: var(--neon-yellow);
     display: flex; justify-content: center; align-items: center;
-    font-weight: bold; font-size: 1rem;
+    font-weight: bold; font-size: 0.9rem;
 }
 
-.icon-btn { 
-    background: #0f172a; border: 2px solid #334155; color: white; 
-    width: 50px; height: 50px; border-radius: 12px; cursor: pointer; 
-}
+.icon-btn { background: #0f172a; border: 2px solid #334155; color: white; width: 45px; height: 45px; border-radius: 10px; cursor: pointer; }
+.menu-btn { background: var(--neon-pink); color: white; border: none; padding: 12px 30px; border-radius: 50px; cursor: pointer; font-weight: bold; }
 
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: flex; justify-content: center; align-items: center; }
-.modal { background: #0f172a; padding: 2rem; border-radius: 20px; border: 3px solid var(--neon-pink); text-align: center; max-width: 90%; }
 .hidden { display: none !important; }
