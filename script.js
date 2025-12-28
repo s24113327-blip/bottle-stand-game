@@ -1,8 +1,8 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-let audioCtx;
+let audioCtx = null;
 
-// Ensure audio context is created and resumed on user interaction
+// FORCE RESUME AUDIO: Browsers block sound until a click happens
 function initAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -13,7 +13,6 @@ function initAudio() {
 }
 
 function playClink(v = 0.1, f = 1200) {
-    initAudio();
     if (!audioCtx || audioCtx.state !== 'running') return;
     const o = audioCtx.createOscillator();
     const g = audioCtx.createGain();
@@ -25,7 +24,6 @@ function playClink(v = 0.1, f = 1200) {
 }
 
 function playWinSound() {
-    initAudio();
     if (!audioCtx || audioCtx.state !== 'running') return;
     [523, 659, 783, 1046].forEach((f, i) => {
         const o = audioCtx.createOscillator();
@@ -70,31 +68,6 @@ function updateSmoke() {
     }
 }
 
-function checkObjectives() {
-    let unlockedLv = 1;
-    if (gameState.level >= 20) unlockedLv = 20;
-    else if (gameState.level >= 15) unlockedLv = 15;
-    else if (gameState.level >= 10) unlockedLv = 10;
-    else if (gameState.level >= 5) unlockedLv = 5;
-    gameState.currentPalette = gameState.skins[unlockedLv];
-    document.querySelectorAll('.dot').forEach((dot, idx) => {
-        const thresholds = [1, 5, 10, 15, 20];
-        if (gameState.level >= thresholds[idx]) dot.classList.add('active');
-    });
-}
-
-function updateLevelSidebar() {
-    const list = document.getElementById("levelList");
-    if (!list) return;
-    list.innerHTML = "";
-    for (let i = 1; i <= Math.max(5, gameState.level + 2); i++) {
-        const li = document.createElement("li");
-        li.className = "level-item" + (i < gameState.level ? " cleared" : (i === gameState.level ? " active" : ""));
-        li.innerHTML = `<span>LV ${i}</span> <span>${i < gameState.level ? '✓' : (i === gameState.level ? 'LIVE' : '🔒')}</span>`;
-        list.appendChild(li);
-    }
-}
-
 function init() {
     gameState.bottleBaseX = gameState.originalBaseX;
     gameState.bottleAngle = 0;
@@ -106,8 +79,6 @@ function init() {
     document.getElementById("score").textContent = "0";
     document.getElementById("level").textContent = "1";
     document.getElementById("bestScore").textContent = gameState.bestScore;
-    updateLevelSidebar();
-    checkObjectives();
     resetRing();
 }
 
@@ -128,22 +99,20 @@ function updatePhysics() {
 
     if (gameState.timeLeft <= 0) triggerGameOver("TIME'S UP!");
 
-    const gravity = 0.04 + (Math.min(gameState.level, 20) * 0.005); 
-    const friction = 0.96;
+    const gravity = 0.05 + (Math.min(gameState.level, 20) * 0.005); 
+    const friction = 0.95;
 
     if (gameState.isHooked) {
-        // Pivot point is at (bottleBaseX, 350). Length is 170.
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
-        
         const dist = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
         
-        if (dist > 70) {
+        if (dist > 75) {
             gameState.isHooked = false; 
             playClink(0.1, 400);
         } else {
             const targetAngle = Math.atan2(gameState.ringY - 350, gameState.ringX - gameState.bottleBaseX);
-            gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * 0.1;
+            gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * 0.12;
             gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
         }
     } else {
@@ -169,26 +138,25 @@ function updatePhysics() {
 function drawGame() {
     ctx.clearRect(0, 0, 800, 450);
 
-    // 1. Neon Table Line
-    ctx.shadowBlur = 10;
+    // 1. Table Line
+    ctx.shadowBlur = 15;
     ctx.shadowColor = "#00f2ff";
     ctx.fillStyle = "#00f2ff"; 
     ctx.fillRect(0, 350, 800, 4);
     ctx.shadowBlur = 0;
 
-    // 2. Bottle Shadow
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    // 2. Pivot/Shadow
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
     ctx.beginPath();
-    ctx.ellipse(gameState.bottleBaseX + 85, 360, 90, 8, 0, 0, Math.PI*2);
+    ctx.arc(gameState.bottleBaseX, 350, 5, 0, Math.PI*2);
     ctx.fill();
 
-    // 3. Bottle (Pivot logic fix)
+    // 3. Bottle Drawing
     ctx.save();
-    // We translate to the point where the bottom-left of the bottle touches the line
     ctx.translate(gameState.bottleBaseX, 350); 
     ctx.rotate(gameState.bottleAngle);
     
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 20;
     ctx.shadowColor = gameState.currentPalette[1];
     
     const grad = ctx.createLinearGradient(0, -20, 0, 20);
@@ -197,8 +165,9 @@ function drawGame() {
     grad.addColorStop(1, gameState.currentPalette[2]);
     
     ctx.fillStyle = grad;
-    // Draw body: Y starts at -21 so the middle of the 42px height is at the pivot Y
-    ctx.fillRect(0, -21, 130, 42); 
+    // Draw body (centered on the pivot Y)
+    ctx.roundRect(0, -21, 130, 42, 8);
+    ctx.fill();
     // Neck
     ctx.fillRect(130, -10, 40, 20);
     // Cap
@@ -207,15 +176,15 @@ function drawGame() {
     ctx.restore();
 
     // 4. Rope & Ring
-    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#444"; 
+    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; 
     ctx.lineWidth = 2;
     ctx.beginPath(); 
     ctx.moveTo(400, 0);
-    ctx.lineTo(gameState.ringX, gameState.ringY - 22);
+    ctx.lineTo(gameState.ringX, gameState.ringY);
     ctx.stroke();
 
     ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#fff"; 
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.beginPath(); 
     ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); 
     ctx.stroke();
@@ -236,55 +205,47 @@ function triggerGameOver(reason) {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
-    // Win if bottle is nearly vertical (-90 degrees is -1.57rad)
-    if (gameState.bottleAngle <= -1.45 && Math.abs(gameState.baseVelocity) < 0.3) {
+    // Win angle (standing upright is approx -1.57 radians)
+    if (gameState.bottleAngle <= -1.45 && Math.abs(gameState.baseVelocity) < 0.4) {
         gameState.hasWon = true; 
         gameState.score += 100; 
         playWinSound();
         document.getElementById("score").textContent = gameState.score;
-        if (gameState.score > gameState.bestScore) {
-            gameState.bestScore = gameState.score;
-            localStorage.setItem("standByMeBest", gameState.bestScore);
-            document.getElementById("bestScore").textContent = gameState.bestScore;
-        }
-        for(let i=0; i<40; i++) gameState.confetti.push({x: gameState.bottleBaseX, y: 250, vx: (Math.random()-0.5)*10, vy: -Math.random()*10, color: `hsl(${Math.random()*360},100%,50%)`, life: 1});
-        
         setTimeout(() => {
             gameState.hasWon = false; 
             gameState.level++;
             document.getElementById("level").textContent = gameState.level;
             gameState.bottleAngle = 0; 
-            gameState.bottleBaseX = gameState.originalBaseX;
             gameState.timeLeft = 20;
             gameState.lastTime = performance.now();
-            checkObjectives(); updateLevelSidebar(); resetRing();
+            resetRing();
         }, 2000);
     }
 }
 
-// Event Listeners
-document.getElementById("startBtn").onclick = () => { 
+// UI HANDLERS
+document.getElementById("startBtn").onclick = () => {
     initAudio(); 
-    document.getElementById("tutorialOverlay").classList.add("hidden"); 
-    gameState.paused = false; 
-    gameState.lastTime = performance.now(); 
-    init(); 
+    gameState.paused = false;
+    document.getElementById("tutorialOverlay").classList.add("hidden");
+    init();
+    gameState.lastTime = performance.now();
 };
 
-document.getElementById("restartBtn").onclick = () => { 
-    initAudio(); 
-    document.getElementById("gameOverOverlay").classList.add("hidden"); 
-    init(); 
-    gameState.paused = false; 
-    gameState.lastTime = performance.now(); 
+document.getElementById("restartBtn").onclick = () => {
+    initAudio();
+    gameState.paused = false;
+    document.getElementById("gameOverOverlay").classList.add("hidden");
+    init();
+    gameState.lastTime = performance.now();
 };
 
 canvas.addEventListener('mousedown', (e) => {
-    initAudio(); // Audio fix for browser policies
+    initAudio();
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (800 / rect.width);
     const y = (e.clientY - rect.top) * (450 / rect.height);
-    if (Math.hypot(x - gameState.ringX, y - gameState.ringY) < 55) gameState.isDragging = true;
+    if (Math.hypot(x - gameState.ringX, y - gameState.ringY) < 60) gameState.isDragging = true;
 });
 
 window.addEventListener('mousemove', (e) => {
@@ -296,7 +257,7 @@ window.addEventListener('mousemove', (e) => {
         if (!gameState.isHooked) {
             const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
             const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
-            if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 32) {
+            if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 30) {
                 gameState.isHooked = true; 
                 playClink(0.2);
             }
@@ -308,7 +269,6 @@ window.addEventListener('mouseup', () => gameState.isDragging = false);
 
 window.onload = () => { 
     canvas.width = 800; canvas.height = 450; 
-    init(); 
     const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; 
     loop(); 
 };
