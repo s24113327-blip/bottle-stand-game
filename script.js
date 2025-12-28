@@ -19,7 +19,7 @@ const gameState = {
     isDragging: false,
     isHooked: false, 
     hasWon: false,
-    friction: 0.92, // Increased for smoother, heavier movement
+    friction: 0.85,
     baseVelocity: 0,
     confetti: []
 };
@@ -47,7 +47,7 @@ function resetRing() {
 function updatePhysics() {
     if (gameState.hasWon || gameState.paused) return;
 
-    const gravity = 0.03 + (gameState.level * 0.01); 
+    const gravity = 0.04 + (gameState.level * 0.015); 
     const snapDistance = Math.max(15, 35 - (gameState.level * 3));
 
     if (gameState.isHooked && gameState.isDragging) {
@@ -62,25 +62,18 @@ function updatePhysics() {
     }
 
     if (!gameState.isHooked) {
-        // Smoother gravity fall
         if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
         if (gameState.bottleAngle > 0) gameState.bottleAngle = 0;
-        
-        // Softened centering force (0.02 instead of 0.05) to prevent shaking
-        gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.02;
+        gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.05;
     }
 
-    // Apply movement
     gameState.bottleBaseX += gameState.baseVelocity;
-    
-    // Higher friction (0.92) acts as a shock absorber
     gameState.baseVelocity *= gameState.friction;
 }
 
 function checkWinCondition() {
     if (gameState.hasWon) return;
-    // Require a more stable stop to count as a win
-    if (gameState.bottleAngle <= -Math.PI / 2 * 0.98 && Math.abs(gameState.baseVelocity) < 0.1) {
+    if (gameState.bottleAngle <= -Math.PI / 2 * 0.97 && Math.abs(gameState.baseVelocity) < 0.2) {
         gameState.hasWon = true;
         gameState.score += 100 * gameState.level;
         document.getElementById("score").textContent = gameState.score;
@@ -89,8 +82,7 @@ function checkWinCondition() {
         setTimeout(() => {
             gameState.hasWon = false;
             gameState.level++;
-            // Slowly decrease friction each level, but keep it high enough to stay stable
-            gameState.friction = Math.max(0.88, 0.92 - (gameState.level * 0.01));
+            gameState.friction = Math.max(0.5, 0.85 - (gameState.level * 0.05));
             document.getElementById("level").textContent = gameState.level;
             resetRing();
             gameState.bottleAngle = 0;
@@ -127,6 +119,7 @@ function drawGame() {
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, gameState.ringRadius, 0, Math.PI * 2); ctx.stroke();
 }
 
+// FIXED START GAME FUNCTION
 function startGame() {
     document.getElementById("tutorialOverlay").classList.add("hidden");
     gameState.paused = false;
@@ -159,10 +152,8 @@ window.addEventListener("mousemove", (e) => {
         const dx = gameState.ringX - gameState.bottleBaseX;
         const dy = gameState.ringY - gameState.bottleBaseY;
         gameState.bottleAngle = Math.atan2(dy, dx);
-        
-        // Softened base movement (0.5 instead of 0.8) for more weight
         if (Math.abs(gameState.ringX - bottleTopX) > 10) {
-            gameState.baseVelocity += (gameState.ringX > bottleTopX ? 0.5 : -0.5) * (1.1 - gameState.friction);
+            gameState.baseVelocity += (gameState.ringX > bottleTopX ? 0.8 : -0.8) * (1.1 - gameState.friction);
         }
     }
 });
