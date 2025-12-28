@@ -52,20 +52,20 @@ body {
     overflow: hidden;
 }
 
-/* CRT Scanline Effect */
+/* Retro Scanlines */
 .canvas-area::before {
     content: " ";
     display: block;
     position: absolute;
     top: 0; left: 0; bottom: 0; right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), 
-                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
     z-index: 5;
     background-size: 100% 4px, 3px 100%;
     pointer-events: none;
 }
 
-#gameCanvas { background: radial-gradient(circle at center, #0a0a1a 0%, #000 100%); display: block; }
+#gameCanvas { background: radial-gradient(circle at bottom, #111 0%, #000 100%); display: block; }
 
 .arcade-panel {
     width: 200px;
@@ -81,7 +81,7 @@ body {
 
 #levelList { list-style: none; padding: 0; margin: 0; }
 .level-item { padding: 5px 10px; margin-bottom: 3px; background: #000; border-radius: 3px; font-size: 0.75rem; display: flex; justify-content: space-between; color: #444; }
-.level-item.active { color: var(--neon-green); border: 1px solid var(--neon-green); }
+.level-item.active { color: var(--neon-green); border: 1px solid var(--neon-green); font-weight: bold; }
 .level-item.cleared { color: var(--neon-blue); }
 
 .digital-num { color: var(--neon-green); font-family: monospace; font-size: 1.1rem; text-shadow: 0 0 5px var(--neon-green); }
