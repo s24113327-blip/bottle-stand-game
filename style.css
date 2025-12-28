@@ -13,122 +13,63 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', sans-serif;
     overflow: hidden;
 }
 
-.night-market-scene {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-}
+.night-market-scene { display: flex; flex-direction: column; align-items: center; gap: 20px; }
 
-/* Outer Neon Title */
 .arcade-title {
     margin: 0;
-    font-size: 3.8rem;
+    font-size: 3.5rem;
     font-weight: 900;
+    letter-spacing: 8px;
     color: #fff;
-    text-transform: uppercase;
-    font-style: italic;
-    letter-spacing: 10px;
     text-shadow: 0 0 10px #fff, 0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink);
     animation: flicker 3s infinite alternate;
 }
 
 @keyframes flicker {
     0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
-    20%, 22%, 24%, 55% { opacity: 0.8; }
+    20%, 22%, 24%, 55% { opacity: 0.85; }
 }
 
-/* Cabinet Frame */
 .arcade-cabinet {
     background: #263238;
     padding: 12px;
     border: 6px solid #455a64;
     border-radius: 12px;
-    box-shadow: 0 0 60px rgba(0,0,0,0.8);
-    position: relative;
+    box-shadow: 0 0 60px rgba(0,0,0,0.9);
 }
 
-.main-layout {
-    display: flex;
-    gap: 15px;
-    background: #000;
-    padding: 10px;
-    border-radius: 4px;
-}
+.main-layout { display: flex; gap: 15px; background: #000; padding: 10px; border-radius: 4px; }
 
-/* Game Area */
-.canvas-area {
-    position: relative;
-    width: 800px;
-    height: 450px;
-    border: 3px solid #111;
-    overflow: hidden;
-}
+.canvas-area { position: relative; width: 800px; height: 450px; border: 3px solid #111; }
 
-#gameCanvas {
-    background: #050505;
-    display: block;
-}
+#gameCanvas { background: #050505; display: block; cursor: crosshair; }
 
-/* Sidebar / Dashboard */
 .arcade-panel {
     width: 200px;
     background: linear-gradient(180deg, #111 0%, #222 100%);
     border: 2px solid #333;
     padding: 15px;
-    border-radius: 5px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
 }
 
-.sidebar-header {
-    color: var(--neon-pink);
-    font-size: 0.75rem;
-    font-weight: 900;
-    letter-spacing: 2px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 4px;
-}
+.sidebar-header { color: var(--neon-pink); font-size: 0.7rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 10px; border-bottom: 1px solid #333; }
 
-/* Level List & Stats */
-#levelList { list-style: none; padding: 0; margin: 0; }
-.level-item {
-    padding: 6px 10px;
-    margin-bottom: 4px;
-    background: #000;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    display: flex;
-    justify-content: space-between;
-    color: #444;
-}
-.level-item.active { color: var(--neon-green); border: 1px solid var(--neon-green); font-weight: bold; }
+#levelList { list-style: none; padding: 0; margin: 0; max-height: 180px; overflow-y: hidden; }
+.level-item { padding: 5px 10px; margin-bottom: 3px; background: #000; border-radius: 3px; font-size: 0.75rem; display: flex; justify-content: space-between; color: #444; }
+.level-item.active { color: var(--neon-green); border: 1px solid var(--neon-green); }
 .level-item.cleared { color: var(--neon-blue); }
 
-.digital-num {
-    color: var(--neon-green);
-    font-family: 'Courier New', monospace;
-    font-size: 1.2rem;
-    text-shadow: 0 0 5px var(--neon-green);
-}
+.digital-num { color: var(--neon-green); font-family: monospace; font-size: 1.1rem; text-shadow: 0 0 5px var(--neon-green); }
 
-.stat-box {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 0.75rem;
-    color: #94a3b8;
-}
+.stat-box { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.7rem; color: #94a3b8; }
 
-/* Skin Dots */
-.skin-preview-grid { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: #333; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
 .dot.active { box-shadow: 0 0 8px currentColor; }
 .dot.green.active { background: #10b981; color: #10b981; }
 .dot.blue.active { background: #3b82f6; color: #3b82f6; }
@@ -136,57 +77,23 @@ body {
 .dot.black.active { background: #525252; color: #525252; }
 .dot.purple.active { background: #a855f7; color: #a855f7; }
 
-/* Buttons & Overlays */
 .arcade-button {
-    background: #d32f2f;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    font-weight: 900;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-bottom: 4px solid #b71c1c;
-    transition: 0.1s;
+    background: #d32f2f; color: white; border: none; padding: 10px 20px; font-weight: 900;
+    text-transform: uppercase; cursor: pointer; border-bottom: 4px solid #b71c1c;
 }
 .arcade-button:active { transform: translateY(2px); border-bottom-width: 2px; }
-.arcade-button.quit { background: #455a64; border-bottom-color: #263238; }
 
-.arcade-overlay {
-    background: rgba(0,0,0,0.92);
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
+.overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 100;
 }
 .hidden { display: none !important; }
 
 .neon-green { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
-.neon-red { color: #ff4444; text-shadow: 0 0 10px #ff4444; }
-.neon-yellow { color: #ffeb3b; text-shadow: 0 0 10px #ffeb3b; }
 
-.retro-label {
-    position: absolute;
-    top: 15px; left: 15px;
-    background: rgba(0,0,0,0.8);
-    padding: 4px 12px;
-    border: 1px solid #333;
-    font-size: 0.8rem;
-    z-index: 10;
-}
+.retro-label { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 4px 10px; font-size: 0.7rem; z-index: 10; border: 1px solid #333; }
 
-.pause-icon {
-    position: absolute;
-    top: 15px; right: 45px;
-    background: transparent; border: 1px solid #fff; color: white; cursor: pointer;
-    z-index: 10;
-}
+.pause-icon { position: absolute; top: 15px; right: 45px; background: transparent; border: 1px solid #fff; color: white; cursor: pointer; z-index: 10; }
 
-.booth-counter {
-    height: 25px;
-    background: var(--wood);
-    border-top: 4px solid #5d4037;
-    border-radius: 0 0 8px 8px;
-}
+.booth-counter { height: 25px; background: var(--wood); border-top: 4px solid #5d4037; border-radius: 0 0 8px 8px; }
