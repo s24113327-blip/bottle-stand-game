@@ -25,6 +25,7 @@ function playClink(v = 0.1, f = 1200) {
     g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
     o.connect(g); g.connect(audioCtx.destination);
     o.start(); o.stop(audioCtx.currentTime + 0.1);
+    triggerShake(3); // Small shake on impact
 }
 
 function playWinSound() {
@@ -47,6 +48,7 @@ const gameState = {
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
     baseVelocity: 0, confetti: [], smoke: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
+    shakeTime: 0, shakeIntensity: 0, // NEW: Shake properties
     currentPalette: ["#064e3b", "#10b981", "#064e3b"],
     skins: {
         1: ["#064e3b", "#10b981", "#064e3b"],
@@ -56,6 +58,11 @@ const gameState = {
         20: ["#4c1d95", "#a855f7", "#4c1d95"]
     }
 };
+
+function triggerShake(intensity) {
+    gameState.shakeTime = 15; // frames
+    gameState.shakeIntensity = intensity;
+}
 
 function updateSmoke() {
     if (Math.random() > 0.90) { 
@@ -76,7 +83,6 @@ function updateLevelSidebar() {
     const list = document.getElementById("levelList");
     if (!list) return;
     list.innerHTML = "";
-    // Show 5 levels ahead or current level progress
     for (let i = 1; i <= Math.max(5, gameState.level + 2); i++) {
         const li = document.createElement("li");
         li.className = "level-item" + (i < gameState.level ? " cleared" : (i === gameState.level ? " active" : ""));
@@ -106,6 +112,7 @@ function init() {
     gameState.timeLeft = 20;
     gameState.baseVelocity = 0;
     gameState.hasWon = false;
+    gameState.confetti = [];
     document.getElementById("score").textContent = gameState.score;
     document.getElementById("level").textContent = gameState.level;
     document.getElementById("bestScore").textContent = gameState.bestScore;
@@ -122,7 +129,15 @@ function resetRing() {
 }
 
 function updatePhysics() {
-    if (gameState.hasWon || gameState.paused || gameState.gameOver) return;
+    if (gameState.hasWon || gameState.paused || gameState.gameOver) {
+        // Still update particles during win delay
+        gameState.confetti.forEach((p, i) => {
+            p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
+            if(p.life <= 0) gameState.confetti.splice(i, 1);
+        });
+        return;
+    }
+
     const now = performance.now();
     const dt = (now - gameState.lastTime) / 1000;
     gameState.lastTime = now;
@@ -168,6 +183,16 @@ function updatePhysics() {
 }
 
 function drawGame() {
+    ctx.save();
+    
+    // Screen Shake Logic
+    if (gameState.shakeTime > 0) {
+        const dx = (Math.random() - 0.5) * gameState.shakeIntensity;
+        const dy = (Math.random() - 0.5) * gameState.shakeIntensity;
+        ctx.translate(dx, dy);
+        gameState.shakeTime--;
+    }
+
     ctx.clearRect(0, 0, 800, 450);
 
     // 1. Smoke (Background)
@@ -200,7 +225,6 @@ function drawGame() {
     grad.addColorStop(0.5, gameState.currentPalette[1]); 
     grad.addColorStop(1, gameState.currentPalette[2]);
     ctx.fillStyle = grad;
-    // Drawn from Y: -42 to 0 to sit on top of the line
     ctx.roundRect(0, -42, 130, 42, 8);
     ctx.fill();
     ctx.fillRect(130, -31, 40, 20); // Neck
@@ -221,7 +245,7 @@ function drawGame() {
     ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); 
     ctx.stroke();
 
-    // 5. UI Timer Bar (Inside Canvas)
+    // 5. UI Timer Bar
     const prog = Math.max(0, gameState.timeLeft / gameState.maxTime);
     ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
     ctx.fillRect(780, 125, 8, 200);
@@ -233,6 +257,8 @@ function drawGame() {
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); 
     });
     ctx.globalAlpha = 1.0;
+    
+    ctx.restore(); // Ends Screen Shake
 }
 
 function triggerGameOver(reason) {
@@ -244,20 +270,35 @@ function triggerGameOver(reason) {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
+    // Condition to win: Angle is vertical enough and bottle is stable
     if (gameState.bottleAngle <= -1.45 && Math.abs(gameState.baseVelocity) < 0.4) {
         gameState.hasWon = true; 
         gameState.score += 100; 
         playWinSound();
+        triggerShake(10); // Big shake on win
+        
+        // SPAWN CONFETTI
+        for(let i=0; i<80; i++) {
+            gameState.confetti.push({
+                x: gameState.bottleBaseX + 60,
+                y: 280,
+                vx: (Math.random() - 0.5) * 15,
+                vy: (Math.random() - 0.5) * 15 - 5,
+                color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                life: 1.0
+            });
+        }
+
         document.getElementById("score").textContent = gameState.score;
         setTimeout(() => {
             gameState.level++;
-            init(); // Reset for next level
+            init(); 
             gameState.lastTime = performance.now();
         }, 2000);
     }
 }
 
-// Global Click listener to ensure audio starts
+// Listeners
 window.addEventListener('click', initAudio);
 
 document.getElementById("startBtn").onclick = () => {
