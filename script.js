@@ -54,6 +54,7 @@ const gameState = {
 
 document.getElementById("bestScore").textContent = gameState.bestScore;
 
+// Helper to map mouse to internal 800x450 resolution
 function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -112,9 +113,9 @@ function updatePhysics() {
 
     // GRADUAL DIFFICULTY SCALING
     const levelMod = Math.min(gameState.level, 20);
-    const gravity = 0.035 + (levelMod * 0.003); // Slower increase
-    const friction = Math.min(0.92 + (levelMod * 0.002), 0.98); // Smoother friction
-    const slipThreshold = Math.max(60 - (levelMod * 1.0), 30); // More forgiving threshold
+    const gravity = 0.035 + (levelMod * 0.003); 
+    const friction = Math.min(0.92 + (levelMod * 0.002), 0.98); 
+    const slipThreshold = Math.max(60 - (levelMod * 1.0), 30); 
 
     if (gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
@@ -143,22 +144,19 @@ function updatePhysics() {
         }
     }
 
-    // Update Position
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= friction;
 
-    // Safety check to prevent the bottle from vanishing
+    // Safety check to prevent the bottle from vanishing due to NaN
     if (isNaN(gameState.bottleBaseX)) {
         gameState.bottleBaseX = gameState.originalBaseX;
         gameState.baseVelocity = 0;
     }
 
-    // Check Game Over
     if (gameState.bottleBaseX < -60 || gameState.bottleBaseX > canvas.width + 60) {
         triggerGameOver();
     }
 
-    // Confetti logic
     gameState.confetti.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
         if(p.life <= 0) gameState.confetti.splice(i, 1);
@@ -175,6 +173,9 @@ function triggerGameOver() {
 
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // IMPORTANT: Reset global opacity so the bottle isn't "faded"
+    ctx.globalAlpha = 1.0; 
 
     // Table line
     ctx.strokeStyle = `#334155`;
@@ -216,21 +217,25 @@ function drawGame() {
     ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
+    // Confetti (uses transparency)
     gameState.confetti.forEach(p => {
-        ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color; 
+        ctx.globalAlpha = p.life; 
         ctx.fillRect(p.x, p.y, 4, 4);
     });
+    
+    // Safety Reset for next frame
+    ctx.globalAlpha = 1.0;
 }
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
     
-    // Win condition: Bottle is nearly vertical and barely moving
     if (gameState.bottleAngle <= -Math.PI/2 * 0.96 && Math.abs(gameState.baseVelocity) < 0.25) {
         gameState.hasWon = true;
         gameState.isHooked = false;
         gameState.isDragging = false;
-        gameState.baseVelocity = 0; // KILL MOMENTUM IMMEDIATELY
+        gameState.baseVelocity = 0; // Freeze momentum
         
         gameState.score += 100;
         playWinSound();
@@ -256,7 +261,7 @@ function checkWin() {
             gameState.level++;
             document.getElementById("level").textContent = gameState.level;
             
-            // Hard reset of all physics values to prevent Level 2 bugs
+            // Hard physics reset for level transition
             gameState.bottleAngle = 0;
             gameState.bottleBaseX = gameState.originalBaseX;
             gameState.baseVelocity = 0;
@@ -309,11 +314,6 @@ document.getElementById("resetBtn").onclick = () => location.reload();
 
 window.onload = () => {
     init();
-    const loop = () => { 
-        updatePhysics(); 
-        checkWin(); 
-        drawGame(); 
-        requestAnimationFrame(loop); 
-    };
+    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); };
     loop();
 };
