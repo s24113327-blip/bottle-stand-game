@@ -43,20 +43,21 @@ const gameState = {
 };
 
 function updateSmoke() {
-    if (Math.random() > 0.94) {
+    // Increased frequency for thicker atmosphere
+    if (Math.random() > 0.85) { 
         gameState.smoke.push({
             x: Math.random() * 800,
-            y: 470,
-            vx: (Math.random() - 0.5) * 0.4,
-            vy: -Math.random() * 0.8 - 0.2,
-            size: Math.random() * 50 + 20,
-            opacity: Math.random() * 0.12 + 0.05
+            y: 480,
+            vx: (Math.random() - 0.5) * 0.6,
+            vy: -Math.random() * 1.2 - 0.4,
+            size: Math.random() * 60 + 40, // Larger clouds
+            opacity: Math.random() * 0.3 + 0.2 // More visible
         });
     }
     for (let i = gameState.smoke.length - 1; i >= 0; i--) {
         let s = gameState.smoke[i];
         s.x += s.vx; s.y += s.vy;
-        s.opacity -= 0.0004;
+        s.opacity -= 0.0008;
         if (s.opacity <= 0) gameState.smoke.splice(i, 1);
     }
 }
@@ -124,11 +125,11 @@ function updatePhysics() {
 
     if (gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-        const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
+        const capY = (gameState.bottleBaseY + 22) + Math.sin(gameState.bottleAngle) * 170;
         if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) > 55) {
             gameState.isHooked = false; playClink(0.1, 400);
         } else {
-            const target = Math.atan2(gameState.ringY - gameState.bottleBaseY, gameState.ringX - gameState.bottleBaseX);
+            const target = Math.atan2(gameState.ringY - (gameState.bottleBaseY + 22), gameState.ringX - gameState.bottleBaseX);
             gameState.bottleAngle += (target - gameState.bottleAngle) * 0.07;
             gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
         }
@@ -154,12 +155,13 @@ function updatePhysics() {
 function drawGame() {
     ctx.clearRect(0, 0, 800, 450);
 
-    // 1. Draw Colored Smoke (Matches Skin)
+    // 1. Draw THICK Colored Smoke
     gameState.smoke.forEach(s => {
         ctx.beginPath();
         let g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size);
-        // Smoke tinted with the skin's secondary color
-        g.addColorStop(0, `${gameState.currentPalette[1]}${Math.floor(s.opacity*255).toString(16).padStart(2,'0')}`);
+        const color = gameState.currentPalette[1];
+        const alpha = Math.floor(s.opacity * 255).toString(16).padStart(2, '0');
+        g.addColorStop(0, `${color}${alpha}`);
         g.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = g;
         ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
@@ -173,24 +175,29 @@ function drawGame() {
     ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
     ctx.fillRect(780, 125 + (200 * (1 - prog)), 8, 200 * prog);
 
-    // 3. Platform (No shadow, just glow line)
-    ctx.shadowBlur = 10;
+    // 3. Platform (Neon Glow line)
+    ctx.shadowBlur = 15;
     ctx.shadowColor = "#00f2ff";
     ctx.fillStyle = "#00f2ff"; 
-    ctx.fillRect(0, gameState.bottleBaseY + 22, 800, 2);
+    ctx.fillRect(0, gameState.bottleBaseY + 22, 800, 3);
     ctx.shadowBlur = 0;
 
-    // 4. Bottle
+    // 4. Bottle - FIXED TRANSLATE TO TOUCH TABLE
     ctx.save();
-    ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY);
+    // We move the pivot to the exact table line (bottleBaseY + 22)
+    ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY + 22);
     ctx.rotate(gameState.bottleAngle);
-    ctx.shadowBlur = 15;
+    
+    ctx.shadowBlur = 20;
     ctx.shadowColor = gameState.currentPalette[1];
+    
     const grad = ctx.createLinearGradient(0, -20, 0, 20);
     grad.addColorStop(0, gameState.currentPalette[0]); 
     grad.addColorStop(0.4, gameState.currentPalette[1]); 
     grad.addColorStop(1, gameState.currentPalette[2]);
+    
     ctx.fillStyle = grad;
+    // Drawn from 0 instead of -21 to sit ON the line
     ctx.fillRect(0, -21, 130, 42); 
     ctx.fillRect(130, -8, 40, 16);
     ctx.fillStyle = "#ef4444"; 
@@ -219,6 +226,7 @@ function triggerGameOver(reason) {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
+    // Bottle is considered standing if it's near vertical and slow
     if (gameState.bottleAngle <= -1.52 && Math.abs(gameState.baseVelocity) < 0.25) {
         gameState.hasWon = true; gameState.score += 100; playWinSound();
         document.getElementById("score").textContent = gameState.score;
@@ -254,7 +262,7 @@ window.addEventListener('mousemove', (e) => {
         gameState.ringY = (e.clientY - rect.top) * (450 / rect.height);
         if (!gameState.isHooked) {
             const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-            const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
+            const capY = (gameState.bottleBaseY + 22) + Math.sin(gameState.bottleAngle) * 170;
             if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 32) {
                 gameState.isHooked = true; playClink(0.2);
             }
