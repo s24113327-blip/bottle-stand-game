@@ -25,7 +25,7 @@ body {
     font-weight: 900;
     letter-spacing: 8px;
     color: #fff;
-    text-shadow: 0 0 10px #fff, 0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink);
+    text-shadow: 0 0 15px #fff, 0 0 25px var(--neon-pink), 0 0 50px var(--neon-pink);
     animation: flicker 3s infinite alternate;
 }
 
@@ -44,9 +44,28 @@ body {
 
 .main-layout { display: flex; gap: 15px; background: #000; padding: 10px; border-radius: 4px; }
 
-.canvas-area { position: relative; width: 800px; height: 450px; border: 3px solid #111; }
+.canvas-area { 
+    position: relative; 
+    width: 800px; 
+    height: 450px; 
+    border: 3px solid #111; 
+    overflow: hidden;
+}
 
-#gameCanvas { background: #050505; display: block; cursor: crosshair; }
+/* CRT Scanline Effect */
+.canvas-area::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    z-index: 5;
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+}
+
+#gameCanvas { background: radial-gradient(circle at center, #0a0a1a 0%, #000 100%); display: block; }
 
 .arcade-panel {
     width: 200px;
@@ -60,7 +79,7 @@ body {
 
 .sidebar-header { color: var(--neon-pink); font-size: 0.7rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 10px; border-bottom: 1px solid #333; }
 
-#levelList { list-style: none; padding: 0; margin: 0; max-height: 180px; overflow-y: hidden; }
+#levelList { list-style: none; padding: 0; margin: 0; }
 .level-item { padding: 5px 10px; margin-bottom: 3px; background: #000; border-radius: 3px; font-size: 0.75rem; display: flex; justify-content: space-between; color: #444; }
 .level-item.active { color: var(--neon-green); border: 1px solid var(--neon-green); }
 .level-item.cleared { color: var(--neon-blue); }
@@ -89,8 +108,6 @@ body {
     justify-content: center; align-items: center; z-index: 100;
 }
 .hidden { display: none !important; }
-
-.neon-green { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
 
 .retro-label { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 4px 10px; font-size: 0.7rem; z-index: 10; border: 1px solid #333; }
 
