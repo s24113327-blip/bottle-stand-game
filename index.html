@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stand-by-Me: Taiwan Night Market</title>
+    <title>Stand-by-Me Night Market</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,19 +11,15 @@
         <div class="modal">
             <h2>🏮 Stand-by-Me 🏮</h2>
             <p>Hook the red cap and stand the bottle up. Pull gently—if the tension is too high, the ring slips!</p>
-            <p style="font-size: 0.85rem; margin-top: 10px; color: #00f3ff;">
-                ⚠️ 3 Lives per level<br>
-                ⏱️ Time decreases every level<br>
-                🚫 Don't let the bottle slide off!
-            </p>
-            <button id="startBtn" class="menu-btn">START CHALLENGE</button>
+            <p style="font-size: 0.8rem; margin-top: 10px; color: #00f3ff;">Careful: If the bottle slides off the table, it's GAME OVER.</p>
+            <button id="startBtn" class="menu-btn">START GAME</button>
         </div>
     </div>
 
     <div id="gameOverOverlay" class="overlay hidden">
         <div class="modal">
             <h2 style="color: #ff4444;">GAME OVER</h2>
-            <p id="failReason">You ran out of lives!</p>
+            <p>The bottle fell off the table!</p>
             <p>Final Score: <span id="finalScore">0</span></p>
             <button id="restartBtn" class="menu-btn">TRY AGAIN</button>
         </div>
@@ -41,8 +37,7 @@
         <div class="game-container">
             <div class="top-bar">
                 <div class="score-box">Points: <span id="score">0</span></div>
-                <div class="score-box">Lives: <span id="lives">3</span></div>
-                <div class="score-box">Time: <span id="timer">30</span>s</div>
+                <div class="score-box">Best: <span id="bestScore">0</span></div>
                 <div class="score-box">Level: <span id="level">1</span></div>
             </div>
             <div class="header">
