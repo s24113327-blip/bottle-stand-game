@@ -42,8 +42,8 @@ const gameState = {
     bottleBaseX: 0,
     originalBaseX: 0,
     bottleBaseY: 0,
-    ringX: 0,
-    ringY: 0,
+    ringX: 400,
+    ringY: 150,
     isDragging: false,
     isHooked: false,
     hasWon: false,
@@ -54,8 +54,7 @@ const gameState = {
 
 document.getElementById("bestScore").textContent = gameState.bestScore;
 
-// --- COORDINATE MAPPING ---
-// This is what was missing. It maps your mouse click to the game's internal 800x450 resolution.
+// FIX 1: The Coordinate Mapper
 function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -96,7 +95,7 @@ function handleMovement(pos) {
     if (!gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
-        if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 35) { // Increased hit area slightly
+        if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 30) {
             gameState.isHooked = true;
             playClink(0.2);
             document.getElementById("status").textContent = "HOOKED!";
@@ -130,7 +129,6 @@ function updatePhysics() {
             gameState.baseVelocity += horizontalPull * (1 + uprightFactor);
         }
     } else {
-        // Simple gravity return
         if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
         if (gameState.bottleAngle >= 0) {
             if (gameState.bottleAngle !== 0) playClink(0.05, 200);
@@ -165,8 +163,7 @@ function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Table
-    const tableHue = Math.max(200 - (gameState.level * 20), 0);
-    ctx.strokeStyle = `hsl(${tableHue}, 50%, 30%)`;
+    ctx.strokeStyle = `#334155`;
     ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, gameState.bottleBaseY + 22); ctx.lineTo(canvas.width, gameState.bottleBaseY + 22); ctx.stroke();
 
@@ -186,12 +183,10 @@ function drawGame() {
     ctx.save();
     ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
-    
     const g = ctx.createLinearGradient(0, -20, 0, 20);
     g.addColorStop(0, "#064e3b"); g.addColorStop(0.4, "#10b981"); g.addColorStop(1, "#064e3b");
     ctx.fillStyle = g;
     ctx.beginPath(); 
-    // Using rect instead of roundRect for better compatibility
     ctx.rect(0, -21, 130, 42); 
     ctx.fill();
     ctx.fillRect(130, -8, 40, 16);
@@ -244,12 +239,12 @@ function checkWin() {
     }
 }
 
-// --- CONTROLS ---
+// FIX 2: Refined Event Listeners
 canvas.addEventListener('mousedown', (e) => {
     if (gameState.paused || gameState.gameOver) return;
     const pos = getMousePos(e);
-    // Check if we clicked near the ring
-    if (Math.hypot(pos.x - gameState.ringX, pos.y - gameState.ringY) < 50) {
+    // Be generous with the click area (50px instead of 22px)
+    if (Math.hypot(pos.x - gameState.ringX, pos.y - gameState.ringY) < 60) {
         gameState.isDragging = true;
     }
 });
@@ -264,7 +259,7 @@ window.addEventListener('mouseup', () => {
     gameState.isDragging = false;
 });
 
-// UI Buttons
+// UI Controls
 document.getElementById("startBtn").onclick = () => {
     document.getElementById("tutorialOverlay").classList.add("hidden");
     gameState.paused = false;
