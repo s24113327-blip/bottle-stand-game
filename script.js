@@ -5,21 +5,19 @@ const gameState = {
     paused: true,
     level: 1,
     score: 0,
-    bestScore: localStorage.getItem("bestScore") || 0,
-    attempts: 0,
     bottleAngle: 0,
     bottleBaseX: 0,
     originalBaseX: 0,
     bottleBaseY: 0,
     ropeAnchorX: 0,
-    ropeAnchorY: 40,
+    ropeAnchorY: 20,
     ringX: 0,
     ringY: 0,
     ringRadius: 22,
     isDragging: false,
     isHooked: false, 
     hasWon: false,
-    friction: 0.95, // Increased friction further for a "heavy" feel
+    friction: 0.94, // High friction for heavy stable feel
     baseVelocity: 0,
     confetti: []
 };
@@ -39,16 +37,14 @@ function resetRing() {
     gameState.isDragging = false;
     gameState.ringX = gameState.ropeAnchorX;
     gameState.ringY = 150;
-    if(document.getElementById("boardFrame")) {
-        document.getElementById("boardFrame").classList.remove("hooked-active");
-    }
+    gameState.baseVelocity = 0;
 }
 
 function updatePhysics() {
     if (gameState.hasWon || gameState.paused) return;
 
     const gravity = 0.03 + (gameState.level * 0.01); 
-    const snapDistance = Math.max(15, 35 - (gameState.level * 3));
+    const snapDistance = Math.max(15, 38 - (gameState.level * 3));
 
     if (gameState.isHooked && gameState.isDragging) {
         const bottleTopX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
@@ -62,17 +58,14 @@ function updatePhysics() {
     }
 
     if (!gameState.isHooked) {
-        if (gameState.bottleAngle < 0) {
-            gameState.bottleAngle += gravity;
-        }
+        if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
         
         if (gameState.bottleAngle >= 0) {
             gameState.bottleAngle = 0;
-            // Only apply centering force if the bottle is NOT sliding quickly
-            // This dampens the "shake"
+            // Only center when flat to prevent shaking
             const distToCenter = gameState.originalBaseX - gameState.bottleBaseX;
             if (Math.abs(distToCenter) > 0.5) {
-                gameState.baseVelocity += distToCenter * 0.01; // Lowered force to 0.01
+                gameState.baseVelocity += distToCenter * 0.01;
             } else {
                 gameState.bottleBaseX = gameState.originalBaseX;
                 gameState.baseVelocity = 0;
@@ -82,26 +75,28 @@ function updatePhysics() {
 
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= gameState.friction;
+
+    gameState.confetti.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.015;
+        if(p.life <= 0) gameState.confetti.splice(i, 1);
+    });
 }
 
 function checkWinCondition() {
     if (gameState.hasWon) return;
-    
     if (gameState.bottleAngle <= -Math.PI / 2 * 0.98 && Math.abs(gameState.baseVelocity) < 0.1) {
         gameState.hasWon = true;
         gameState.score += 100 * gameState.level;
         document.getElementById("score").textContent = gameState.score;
-        document.getElementById("status").textContent = "WINNER! 🏮";
+        document.getElementById("status").textContent = "PERFECT! 🏮";
+        createVictoryConfetti();
         
         setTimeout(() => {
             gameState.hasWon = false;
             gameState.level++;
-            
-            // KEY FIX: Reset the momentum for the next round
             gameState.baseVelocity = 0; 
             gameState.bottleBaseX = gameState.originalBaseX;
-            
-            gameState.friction = Math.max(0.90, 0.95 - (gameState.level * 0.01));
+            gameState.friction = Math.max(0.90, 0.94 - (gameState.level * 0.01));
             document.getElementById("level").textContent = gameState.level;
             resetRing();
             gameState.bottleAngle = 0;
@@ -113,43 +108,72 @@ function checkWinCondition() {
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Table
-    ctx.strokeStyle = "#444";
-    ctx.lineWidth = 5;
+    // --- TABLE ---
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(0, gameState.bottleBaseY + 5); ctx.lineTo(canvas.width, gameState.bottleBaseY + 5); ctx.stroke();
 
-    // Rope
-    ctx.strokeStyle = gameState.isHooked ? "#ffee00" : "#666";
+    // --- ROPE (Curved) ---
+    ctx.strokeStyle = gameState.isHooked ? "#fbbf24" : "#475569";
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(gameState.ropeAnchorX, gameState.ropeAnchorY);
-    ctx.lineTo(gameState.ringX, gameState.ringY); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(gameState.ropeAnchorX, gameState.ropeAnchorY);
+    ctx.quadraticCurveTo(gameState.ropeAnchorX, (gameState.ropeAnchorY + gameState.ringY)/2, gameState.ringX, gameState.ringY);
+    ctx.stroke();
 
-    // Bottle
+    // --- BOTTLE (Polished) ---
     ctx.save();
     ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
-    ctx.fillStyle = "#10b981"; ctx.fillRect(0, -21, 135, 42); 
-    ctx.fillStyle = "#ff0033"; ctx.fillRect(170, -11, 8, 22); 
+
+    // Glass Body
+    const glassGrad = ctx.createLinearGradient(0, -20, 0, 20);
+    glassGrad.addColorStop(0, "#065f46"); glassGrad.addColorStop(0.5, "#10b981"); glassGrad.addColorStop(1, "#064e3b");
+    ctx.fillStyle = glassGrad;
+    ctx.beginPath();
+    ctx.roundRect(0, -21, 130, 42, [0, 10, 10, 0]); ctx.fill();
+
+    // Label
+    ctx.fillStyle = "#fbbf24"; ctx.fillRect(45, -21, 40, 42);
+    ctx.fillStyle = "#b91c1c"; ctx.font = "bold 10px sans-serif"; ctx.fillText("TAIWAN", 48, 4);
+
+    // Neck & Cap
+    ctx.fillStyle = glassGrad;
+    ctx.beginPath(); ctx.moveTo(130, -21); ctx.quadraticCurveTo(145, -21, 145, -10); ctx.lineTo(145, 10); ctx.quadraticCurveTo(145, 21, 130, 21); ctx.fill();
+    ctx.fillRect(145, -8, 25, 16);
+    ctx.fillStyle = "#ef4444"; ctx.roundRect(170, -10, 10, 20, 3); ctx.fill();
     ctx.restore();
 
-    // Ring
+    // --- RING ---
     ctx.strokeStyle = gameState.isHooked ? "#ff007f" : "#fff";
     ctx.lineWidth = 5;
+    if(gameState.isHooked) { ctx.shadowBlur = 15; ctx.shadowColor = "#ff007f"; }
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, gameState.ringRadius, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Confetti
+    gameState.confetti.forEach(p => {
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
 }
 
-function startGame() {
-    document.getElementById("tutorialOverlay").classList.add("hidden");
-    gameState.paused = false;
-    init();
+function createVictoryConfetti() {
+    for(let i=0; i<30; i++) {
+        gameState.confetti.push({
+            x: gameState.bottleBaseX + 50, y: gameState.bottleBaseY - 50,
+            vx: (Math.random() - 0.5) * 10, vy: -Math.random() * 10 - 5,
+            color: `hsl(${Math.random() * 360}, 100%, 50%)`, size: Math.random() * 5 + 2, life: 1
+        });
+    }
 }
 
 canvas.addEventListener("mousedown", (e) => {
     if (gameState.paused) return;
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    if (Math.hypot(mx - gameState.ringX, my - gameState.ringY) < 40) gameState.isDragging = true;
+    const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
+    if (Math.hypot(mx - gameState.ringX, my - gameState.ringY) < 45) gameState.isDragging = true;
 });
 
 window.addEventListener("mousemove", (e) => {
@@ -170,7 +194,6 @@ window.addEventListener("mousemove", (e) => {
         const dx = gameState.ringX - gameState.bottleBaseX;
         const dy = gameState.ringY - gameState.bottleBaseY;
         gameState.bottleAngle = Math.atan2(dy, dx);
-        
         if (Math.abs(gameState.ringX - bottleTopX) > 10) {
             gameState.baseVelocity += (gameState.ringX > bottleTopX ? 0.4 : -0.4) * (1.1 - gameState.friction);
         }
@@ -179,7 +202,12 @@ window.addEventListener("mousemove", (e) => {
 
 window.addEventListener("mouseup", () => gameState.isDragging = false);
 
-document.getElementById("startBtn").addEventListener("click", startGame);
+document.getElementById("startBtn").addEventListener("click", () => {
+    document.getElementById("tutorialOverlay").classList.add("hidden");
+    gameState.paused = false;
+    init();
+});
+
 document.getElementById("resetBtn").addEventListener("click", () => location.reload());
 
 window.addEventListener("load", () => {
