@@ -50,7 +50,8 @@ const gameState = {
     baseVelocity: 0,
     wind: 0,
     confetti: [],
-    timeLeft: 20, // New Timer state
+    timeLeft: 20,
+    maxTime: 20, // To calculate bar percentage
     lastTime: 0
 };
 
@@ -78,7 +79,8 @@ function init() {
     gameState.hasWon = false;
     gameState.baseVelocity = 0;
     gameState.bottleAngle = 0;
-    gameState.timeLeft = 20; // Start with 20 seconds
+    gameState.maxTime = 20;
+    gameState.timeLeft = 20;
     gameState.lastTime = performance.now();
     document.getElementById("score").textContent = "0";
     document.getElementById("level").textContent = "1";
@@ -102,7 +104,6 @@ function handleMovement(pos) {
         if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 35) {
             gameState.isHooked = true;
             playClink(0.2);
-            document.getElementById("status").textContent = "HOOKED!";
         }
     }
 }
@@ -110,7 +111,6 @@ function handleMovement(pos) {
 function updatePhysics() {
     if (gameState.hasWon || gameState.paused || gameState.gameOver) return;
 
-    // --- TIMER LOGIC ---
     const now = performance.now();
     const dt = (now - gameState.lastTime) / 1000;
     gameState.lastTime = now;
@@ -121,11 +121,14 @@ function updatePhysics() {
         triggerGameOver("TIME'S UP!");
     }
 
-    // Update Status with Timer
-    if (!gameState.isHooked) {
-        document.getElementById("status").textContent = `Time: ${Math.ceil(gameState.timeLeft)}s | Hook the cap!`;
+    // Status logic with blinking effect
+    const statusEl = document.getElementById("status");
+    if (gameState.timeLeft < 5 && Math.floor(now / 200) % 2 === 0) {
+        statusEl.style.color = "#ff4444";
+        statusEl.textContent = `CRITICAL TIME: ${Math.ceil(gameState.timeLeft)}s!`;
     } else {
-        document.getElementById("status").textContent = `Time: ${Math.ceil(gameState.timeLeft)}s | STEADY...`;
+        statusEl.style.color = "white";
+        statusEl.textContent = gameState.isHooked ? "STEADY..." : "Hook the cap!";
     }
 
     gameState.wind += 0.02;
@@ -143,7 +146,6 @@ function updatePhysics() {
         if (tension > slipThreshold) {
             gameState.isHooked = false;
             playClink(0.1, 400);
-            document.getElementById("status").textContent = "SLIPPED!";
         } else {
             const targetAngle = Math.atan2(gameState.ringY - gameState.bottleBaseY, gameState.ringX - gameState.bottleBaseX);
             gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * 0.07;
@@ -171,7 +173,7 @@ function updatePhysics() {
     }
 
     if (gameState.bottleBaseX < -60 || gameState.bottleBaseX > canvas.width + 60) {
-        triggerGameOver("BOTTLE FELL OFF!");
+        triggerGameOver("BOTTLE FELL!");
     }
 
     gameState.confetti.forEach((p, i) => {
@@ -193,6 +195,24 @@ function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.globalAlpha = 1.0; 
 
+    // --- SIDE TIMER BAR ---
+    const barWidth = 15;
+    const barHeight = 200;
+    const barX = canvas.width - 40;
+    const barY = (canvas.height / 2) - (barHeight / 2);
+    const progress = gameState.timeLeft / gameState.maxTime;
+    
+    // Bar Background
+    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+    
+    // Bar Foreground (Color based on time)
+    let color = "#10b981"; // Green
+    if (progress < 0.5) color = "#fbbf24"; // Yellow
+    if (progress < 0.25) color = "#ef4444"; // Red
+    ctx.fillStyle = color;
+    ctx.fillRect(barX, barY + (barHeight * (1 - progress)), barWidth, barHeight * progress);
+    
     // Table
     ctx.strokeStyle = `#334155`;
     ctx.lineWidth = 4;
@@ -233,9 +253,9 @@ function drawGame() {
     ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
+    // Confetti
     gameState.confetti.forEach(p => {
-        ctx.fillStyle = p.color; 
-        ctx.globalAlpha = p.life; 
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; 
         ctx.fillRect(p.x, p.y, 4, 4);
     });
     ctx.globalAlpha = 1.0;
@@ -243,47 +263,36 @@ function drawGame() {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver) return;
-    
     if (gameState.bottleAngle <= -Math.PI/2 * 0.96 && Math.abs(gameState.baseVelocity) < 0.25) {
         gameState.hasWon = true;
         gameState.isHooked = false;
         gameState.isDragging = false;
         gameState.baseVelocity = 0;
-        
         gameState.score += 100;
         playWinSound();
         document.getElementById("score").textContent = gameState.score;
-        
         if (gameState.score > gameState.bestScore) {
             gameState.bestScore = gameState.score;
             localStorage.setItem("standByMeBest", gameState.bestScore);
             document.getElementById("bestScore").textContent = gameState.bestScore;
         }
-        
-        document.getElementById("status").textContent = "PERFECT! 🏮";
-        
         for(let i=0; i<40; i++) {
             gameState.confetti.push({
                 x: gameState.bottleBaseX, y: gameState.bottleBaseY - 120,
                 vx: (Math.random()-0.5)*12, vy: -Math.random()*10-5, color: `hsl(${Math.random()*360}, 100%, 50%)`, life: 1
             });
         }
-
         setTimeout(() => {
             gameState.hasWon = false;
             gameState.level++;
             document.getElementById("level").textContent = gameState.level;
-            
             gameState.bottleAngle = 0;
             gameState.bottleBaseX = gameState.originalBaseX;
             gameState.baseVelocity = 0;
-            
-            // RESET TIMER: Decreases per level but minimum 10 seconds
-            gameState.timeLeft = Math.max(20 - (gameState.level - 1), 10);
+            gameState.maxTime = Math.max(20 - (gameState.level - 1), 10);
+            gameState.timeLeft = gameState.maxTime;
             gameState.lastTime = performance.now();
-            
             resetRing();
-            document.getElementById("status").textContent = "Level " + gameState.level;
         }, 2000);
     }
 }
@@ -324,18 +333,13 @@ document.getElementById("pauseBtn").onclick = () => {
 };
 document.getElementById("resumeBtn").onclick = () => {
     gameState.paused = false;
-    gameState.lastTime = performance.now(); // Reset delta timer on resume
+    gameState.lastTime = performance.now();
     document.getElementById("pauseOverlay").classList.add("hidden");
 };
 document.getElementById("resetBtn").onclick = () => location.reload();
 
 window.onload = () => {
     init();
-    const loop = () => { 
-        updatePhysics(); 
-        checkWin(); 
-        drawGame(); 
-        requestAnimationFrame(loop); 
-    };
+    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); };
     loop();
 };
