@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stand By Me - Bottle Challenge</title>
+    <title>STAND-BY-ME | Bottle Challenge</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,11 +11,12 @@
 <div class="game-wrapper">
     <div class="main-layout">
         <div class="canvas-area">
+            <h1 class="game-title">STAND-BY-ME</h1>
             <div id="status">Hook the cap!</div>
+            
             <canvas id="gameCanvas"></canvas>
 
             <div id="tutorialOverlay" class="overlay">
-                <h1>STAND BY ME</h1>
                 <p>Hook the bottle and pull it upright!</p>
                 <button id="startBtn">START GAME</button>
             </div>
@@ -23,11 +24,11 @@
             <div id="pauseOverlay" class="overlay hidden">
                 <h1>PAUSED</h1>
                 <button id="resumeBtn">RESUME</button>
-                <button id="resetBtn">RESET</button>
+                <button id="resetBtn">QUIT</button>
             </div>
 
             <div id="gameOverOverlay" class="overlay hidden">
-                <h2>GAME OVER</h2>
+                <h2 id="deathReason">GAME OVER</h2>
                 <p>Final Score: <span id="finalScore">0</span></p>
                 <button id="restartBtn">TRY AGAIN</button>
             </div>
@@ -38,6 +39,21 @@
         <div class="sidebar">
             <div class="sidebar-header">PROGRESSION</div>
             <ul id="levelList"></ul>
+            
+            <div class="objectives">
+                <div class="sidebar-header">SKIN UNLOCKS</div>
+                <div id="skinObjective" class="objective-item">
+                    <div id="skinStatus">Next: Lv 5 Sapphire</div>
+                </div>
+                <div class="skin-preview-grid">
+                    <div class="dot green active"></div>
+                    <div class="dot blue"></div>
+                    <div class="dot red"></div>
+                    <div class="dot black"></div>
+                    <div class="dot purple"></div>
+                </div>
+            </div>
+
             <div class="sidebar-stats">
                 <div class="stat-box"><span>SCORE</span><span id="score">0</span></div>
                 <div class="stat-box"><span>BEST</span><span id="bestScore">0</span></div>
