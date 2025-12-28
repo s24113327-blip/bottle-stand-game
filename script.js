@@ -49,12 +49,13 @@ const gameState = {
     hasWon: false,
     baseVelocity: 0,
     wind: 0,
-    confetti: []
+    confetti: [],
+    timeLeft: 20, // New Timer state
+    lastTime: 0
 };
 
 document.getElementById("bestScore").textContent = gameState.bestScore;
 
-// Helper to map mouse to internal 800x450 resolution
 function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -77,6 +78,8 @@ function init() {
     gameState.hasWon = false;
     gameState.baseVelocity = 0;
     gameState.bottleAngle = 0;
+    gameState.timeLeft = 20; // Start with 20 seconds
+    gameState.lastTime = performance.now();
     document.getElementById("score").textContent = "0";
     document.getElementById("level").textContent = "1";
     resetRing();
@@ -91,10 +94,8 @@ function resetRing() {
 
 function handleMovement(pos) {
     if (!gameState.isDragging || gameState.paused || gameState.hasWon || gameState.gameOver) return;
-    
     gameState.ringX = pos.x;
     gameState.ringY = pos.y;
-
     if (!gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
@@ -108,10 +109,27 @@ function handleMovement(pos) {
 
 function updatePhysics() {
     if (gameState.hasWon || gameState.paused || gameState.gameOver) return;
-    
+
+    // --- TIMER LOGIC ---
+    const now = performance.now();
+    const dt = (now - gameState.lastTime) / 1000;
+    gameState.lastTime = now;
+    gameState.timeLeft -= dt;
+
+    if (gameState.timeLeft <= 0) {
+        gameState.timeLeft = 0;
+        triggerGameOver("TIME'S UP!");
+    }
+
+    // Update Status with Timer
+    if (!gameState.isHooked) {
+        document.getElementById("status").textContent = `Time: ${Math.ceil(gameState.timeLeft)}s | Hook the cap!`;
+    } else {
+        document.getElementById("status").textContent = `Time: ${Math.ceil(gameState.timeLeft)}s | STEADY...`;
+    }
+
     gameState.wind += 0.02;
 
-    // GRADUAL DIFFICULTY SCALING
     const levelMod = Math.min(gameState.level, 20);
     const gravity = 0.035 + (levelMod * 0.003); 
     const friction = Math.min(0.92 + (levelMod * 0.002), 0.98); 
@@ -147,14 +165,13 @@ function updatePhysics() {
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= friction;
 
-    // Safety check to prevent the bottle from vanishing due to NaN
     if (isNaN(gameState.bottleBaseX)) {
         gameState.bottleBaseX = gameState.originalBaseX;
         gameState.baseVelocity = 0;
     }
 
     if (gameState.bottleBaseX < -60 || gameState.bottleBaseX > canvas.width + 60) {
-        triggerGameOver();
+        triggerGameOver("BOTTLE FELL OFF!");
     }
 
     gameState.confetti.forEach((p, i) => {
@@ -163,21 +180,20 @@ function updatePhysics() {
     });
 }
 
-function triggerGameOver() {
+function triggerGameOver(reason = "GAME OVER") {
     gameState.gameOver = true;
     gameState.isDragging = false;
     playClink(0.3, 100);
+    document.querySelector("#gameOverOverlay h2").textContent = reason;
     document.getElementById("finalScore").textContent = gameState.score;
     document.getElementById("gameOverOverlay").classList.remove("hidden");
 }
 
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // IMPORTANT: Reset global opacity so the bottle isn't "faded"
     ctx.globalAlpha = 1.0; 
 
-    // Table line
+    // Table
     ctx.strokeStyle = `#334155`;
     ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(0, gameState.bottleBaseY + 22); ctx.lineTo(canvas.width, gameState.bottleBaseY + 22); ctx.stroke();
@@ -217,14 +233,11 @@ function drawGame() {
     ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
-    // Confetti (uses transparency)
     gameState.confetti.forEach(p => {
         ctx.fillStyle = p.color; 
         ctx.globalAlpha = p.life; 
         ctx.fillRect(p.x, p.y, 4, 4);
     });
-    
-    // Safety Reset for next frame
     ctx.globalAlpha = 1.0;
 }
 
@@ -235,7 +248,7 @@ function checkWin() {
         gameState.hasWon = true;
         gameState.isHooked = false;
         gameState.isDragging = false;
-        gameState.baseVelocity = 0; // Freeze momentum
+        gameState.baseVelocity = 0;
         
         gameState.score += 100;
         playWinSound();
@@ -261,10 +274,13 @@ function checkWin() {
             gameState.level++;
             document.getElementById("level").textContent = gameState.level;
             
-            // Hard physics reset for level transition
             gameState.bottleAngle = 0;
             gameState.bottleBaseX = gameState.originalBaseX;
             gameState.baseVelocity = 0;
+            
+            // RESET TIMER: Decreases per level but minimum 10 seconds
+            gameState.timeLeft = Math.max(20 - (gameState.level - 1), 10);
+            gameState.lastTime = performance.now();
             
             resetRing();
             document.getElementById("status").textContent = "Level " + gameState.level;
@@ -308,12 +324,18 @@ document.getElementById("pauseBtn").onclick = () => {
 };
 document.getElementById("resumeBtn").onclick = () => {
     gameState.paused = false;
+    gameState.lastTime = performance.now(); // Reset delta timer on resume
     document.getElementById("pauseOverlay").classList.add("hidden");
 };
 document.getElementById("resetBtn").onclick = () => location.reload();
 
 window.onload = () => {
     init();
-    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); };
+    const loop = () => { 
+        updatePhysics(); 
+        checkWin(); 
+        drawGame(); 
+        requestAnimationFrame(loop); 
+    };
     loop();
 };
