@@ -54,6 +54,18 @@ const gameState = {
 
 document.getElementById("bestScore").textContent = gameState.bestScore;
 
+// --- COORDINATE MAPPING ---
+// This is what was missing. It maps your mouse click to the game's internal 800x450 resolution.
+function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
 function init() {
     canvas.width = 800;
     canvas.height = 450;
@@ -77,13 +89,14 @@ function resetRing() {
 
 function handleMovement(pos) {
     if (!gameState.isDragging || gameState.paused || gameState.hasWon || gameState.gameOver) return;
+    
     gameState.ringX = pos.x;
     gameState.ringY = pos.y;
 
     if (!gameState.isHooked) {
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = gameState.bottleBaseY + Math.sin(gameState.bottleAngle) * 170;
-        if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 25) {
+        if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 35) { // Increased hit area slightly
             gameState.isHooked = true;
             playClink(0.2);
             document.getElementById("status").textContent = "HOOKED!";
@@ -95,7 +108,6 @@ function updatePhysics() {
     if (gameState.hasWon || gameState.paused || gameState.gameOver) return;
     gameState.wind += 0.02;
 
-    // Difficulty Scaling
     const levelMod = Math.min(gameState.level, 10);
     const gravity = 0.035 + (levelMod * 0.006);
     const friction = Math.min(0.90 + (levelMod * 0.006), 0.97); 
@@ -108,7 +120,7 @@ function updatePhysics() {
 
         if (tension > slipThreshold) {
             gameState.isHooked = false;
-            playClink(0.1, 400); // Low thud for slip
+            playClink(0.1, 400);
             document.getElementById("status").textContent = "SLIPPED!";
         } else {
             const targetAngle = Math.atan2(gameState.ringY - gameState.bottleBaseY, gameState.ringX - gameState.bottleBaseX);
@@ -118,6 +130,7 @@ function updatePhysics() {
             gameState.baseVelocity += horizontalPull * (1 + uprightFactor);
         }
     } else {
+        // Simple gravity return
         if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
         if (gameState.bottleAngle >= 0) {
             if (gameState.bottleAngle !== 0) playClink(0.05, 200);
@@ -131,7 +144,6 @@ function updatePhysics() {
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= friction;
 
-    // GAME OVER CHECK: Bottle slides off canvas
     if (gameState.bottleBaseX < -50 || gameState.bottleBaseX > canvas.width + 50) {
         triggerGameOver();
     }
@@ -152,7 +164,7 @@ function triggerGameOver() {
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Dynamic Table Color
+    // Table
     const tableHue = Math.max(200 - (gameState.level * 20), 0);
     ctx.strokeStyle = `hsl(${tableHue}, 50%, 30%)`;
     ctx.lineWidth = 4;
@@ -174,16 +186,17 @@ function drawGame() {
     ctx.save();
     ctx.translate(gameState.bottleBaseX, gameState.bottleBaseY);
     ctx.rotate(gameState.bottleAngle);
-    if (gameState.bottleAngle < -Math.PI / 3) {
-        ctx.shadowBlur = 15; ctx.shadowColor = "rgba(0, 243, 255, 0.5)";
-    }
+    
     const g = ctx.createLinearGradient(0, -20, 0, 20);
     g.addColorStop(0, "#064e3b"); g.addColorStop(0.4, "#10b981"); g.addColorStop(1, "#064e3b");
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.roundRect(0, -21, 130, 42, [5, 15, 15, 5]); ctx.fill();
+    ctx.beginPath(); 
+    // Using rect instead of roundRect for better compatibility
+    ctx.rect(0, -21, 130, 42); 
+    ctx.fill();
     ctx.fillRect(130, -8, 40, 16);
     ctx.fillStyle = "#ef4444"; 
-    ctx.beginPath(); ctx.roundRect(170, -10, 10, 20, 3); ctx.fill();
+    ctx.beginPath(); ctx.rect(170, -10, 10, 20); ctx.fill();
     ctx.restore();
 
     // Ring
@@ -231,14 +244,27 @@ function checkWin() {
     }
 }
 
-// Controls
-canvas.onmousedown = (e) => {
+// --- CONTROLS ---
+canvas.addEventListener('mousedown', (e) => {
     if (gameState.paused || gameState.gameOver) return;
     const pos = getMousePos(e);
-    if (Math.hypot(pos.x - gameState.ringX, pos.y - gameState.ringY) < 40) gameState.isDragging = true;
-};
-window.onmousemove = (e) => handleMovement(getMousePos(e));
-window.onmouseup = () => gameState.isDragging = false;
+    // Check if we clicked near the ring
+    if (Math.hypot(pos.x - gameState.ringX, pos.y - gameState.ringY) < 50) {
+        gameState.isDragging = true;
+    }
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (gameState.isDragging) {
+        handleMovement(getMousePos(e));
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    gameState.isDragging = false;
+});
+
+// UI Buttons
 document.getElementById("startBtn").onclick = () => {
     document.getElementById("tutorialOverlay").classList.add("hidden");
     gameState.paused = false;
