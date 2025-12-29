@@ -38,13 +38,13 @@ function playWinSound() {
 
 const gameState = {
     paused: true, gameOver: false, hasWon: false,
-    level: 1, score: 0, lives: 3, // NEW: Life system
+    level: 1, score: 0, lives: 3,
     bestScore: localStorage.getItem("standByMeBest") || 0,
     bottleAngle: 0, bottleBaseX: 300, originalBaseX: 300, 
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
     baseVelocity: 0, confetti: [], smoke: [], rain: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
-    shakeTime: 0, shakeIntensity: 0, flashAlpha: 0, // NEW: Flash for lightning
+    shakeTime: 0, shakeIntensity: 0, flashAlpha: 0,
     windForce: 0, windTarget: 0, windLines: [],
     currentPalette: ["#064e3b", "#10b981", "#064e3b"],
     skins: {
@@ -61,83 +61,37 @@ function triggerShake(intensity) {
 
 function updateWeather() {
     if (gameState.level >= 3) {
-        if (Math.random() > 0.95) {
-            const intensity = 0.05 + (gameState.level * 0.02); 
+        if (Math.random() > 0.96) {
+            const intensity = 0.06 + (gameState.level * 0.02); 
             gameState.windTarget = (Math.random() - 0.5) * intensity;
         }
         gameState.windForce += (gameState.windTarget - gameState.windForce) * 0.08;
-
-        // Visual Wind Lines
-        if (Math.random() > 0.7) {
-            gameState.windLines.push({
-                x: gameState.windForce > 0 ? -100 : 900,
-                y: Math.random() * 400,
-                w: 40 + Math.random() * 60,
-                speed: gameState.windForce * 100 + (gameState.windForce > 0 ? 5 : -5)
-            });
-        }
     }
 
-    // Lightning (LV 10+)
     if (gameState.level >= 10 && Math.random() > 0.997) {
-        gameState.flashAlpha = 1.0;
-        gameState.windTarget = (Math.random() - 0.5) * (0.1 + gameState.level * 0.02); // Chaos!
-        playClink(0.3, 100); // Low thunder sound
+        gameState.flashAlpha = 0.8;
+        gameState.windTarget = (Math.random() - 0.5) * (0.2 + gameState.level * 0.02);
     }
     if (gameState.flashAlpha > 0) gameState.flashAlpha -= 0.05;
 
-    // Rain (LV 5+)
     if (gameState.level >= 5) {
-        if (gameState.rain.length < 120) {
-            gameState.rain.push({
-                x: Math.random() * 800, y: -20,
-                speed: 12 + Math.random() * 10,
-                len: 15 + Math.random() * 10
-            });
+        if (gameState.rain.length < 100) {
+            gameState.rain.push({ x: Math.random() * 800, y: -50, speed: 15 + Math.random() * 10, len: 20 });
         }
     }
     
     gameState.rain.forEach((r) => {
         r.y += r.speed;
-        r.x += gameState.windForce * 60;
-        if (r.y > 450) { r.y = -20; r.x = Math.random() * 800; }
+        r.x += gameState.windForce * 80;
+        if (r.y > 450) { r.y = -50; r.x = Math.random() * 800; }
     });
-
-    for (let i = gameState.windLines.length - 1; i >= 0; i--) {
-        let l = gameState.windLines[i];
-        l.x += l.speed;
-        if (l.x < -150 || l.x > 950) gameState.windLines.splice(i, 1);
-    }
-}
-
-function updateUI() {
-    document.getElementById("score").textContent = gameState.score;
-    document.getElementById("level").textContent = gameState.level;
-    document.getElementById("bestScore").textContent = gameState.bestScore;
-    
-    // Display lives as hearts
-    const livesDisplay = "❤️".repeat(gameState.lives);
-    const lifeContainer = document.getElementById("livesDisplay");
-    if(lifeContainer) lifeContainer.textContent = livesDisplay;
-}
-
-function loseLife(reason) {
-    gameState.lives--;
-    triggerShake(15);
-    playClink(0.4, 150);
-    
-    if (gameState.lives <= 0) {
-        triggerGameOver(reason);
-    } else {
-        // Reset level but keep score/lives
-        init(true); 
-    }
 }
 
 function init(keepLives = false) {
     if (!keepLives) {
         gameState.lives = 3;
         gameState.score = 0;
+        gameState.level = 1;
     }
     gameState.bottleBaseX = gameState.originalBaseX;
     gameState.bottleAngle = 0;
@@ -146,8 +100,6 @@ function init(keepLives = false) {
     gameState.baseVelocity = 0;
     gameState.hasWon = false;
     gameState.confetti = [];
-    gameState.windLines = [];
-    gameState.rain = [];
     gameState.windForce = 0;
     gameState.windTarget = 0;
     
@@ -157,57 +109,68 @@ function init(keepLives = false) {
     resetRing();
 }
 
+function updateUI() {
+    document.getElementById("score").textContent = gameState.score;
+    document.getElementById("level").textContent = gameState.level;
+    document.getElementById("bestScore").textContent = gameState.bestScore;
+    const lifeDisplay = document.getElementById("livesDisplay");
+    if(lifeDisplay) lifeDisplay.textContent = "❤️".repeat(gameState.lives);
+}
+
+function loseLife(reason) {
+    gameState.lives--;
+    triggerShake(20);
+    if (gameState.lives <= 0) {
+        triggerGameOver(reason);
+    } else {
+        init(true); 
+    }
+}
+
 function updatePhysics() {
     if (gameState.paused || gameState.gameOver) return;
     
-    if (gameState.hasWon) {
-        gameState.confetti.forEach((p, i) => {
-            p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
-            if(p.life <= 0) gameState.confetti.splice(i, 1);
-        });
-        return;
-    }
-
     const now = performance.now();
     const dt = (now - gameState.lastTime) / 1000;
     gameState.lastTime = now;
-    gameState.timeLeft -= dt;
-    
-    updateWeather();
 
-    if (gameState.timeLeft <= 0) loseLife("TIME'S UP!");
+    if (!gameState.hasWon) {
+        gameState.timeLeft -= dt;
+        updateWeather();
+        if (gameState.timeLeft <= 0) loseLife("TIME'S UP!");
 
-    const gravity = 0.045 + (Math.min(gameState.level, 20) * 0.007); 
-    const friction = 0.965;
+        const gravity = 0.045 + (Math.min(gameState.level, 20) * 0.008); 
+        const friction = 0.96;
 
-    const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-    const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
+        const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
+        const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
 
-    gameState.baseVelocity += gameState.windForce;
+        gameState.baseVelocity += gameState.windForce;
 
-    if (gameState.isHooked) {
-        const dist = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
-        if (dist > 80) {
-            gameState.isHooked = false; 
-            playClink(0.1, 400);
+        if (gameState.isHooked) {
+            const dist = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
+            if (dist > 85) {
+                gameState.isHooked = false; 
+                playClink(0.1, 400);
+            } else {
+                const targetAngle = Math.atan2(gameState.ringY - 350, gameState.ringX - gameState.bottleBaseX);
+                gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * 0.12;
+                gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
+            }
         } else {
-            const targetAngle = Math.atan2(gameState.ringY - 350, gameState.ringX - gameState.bottleBaseX);
-            gameState.bottleAngle += (targetAngle - gameState.bottleAngle) * 0.12;
-            gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
+            if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
+            if (gameState.bottleAngle > 0) {
+                if (gameState.bottleAngle > 0.1) playClink(0.05, 200);
+                gameState.bottleAngle = 0;
+            }
+            gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.035;
         }
-    } else {
-        if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
-        if (gameState.bottleAngle > 0) {
-            if (gameState.bottleAngle > 0.1) playClink(0.05, 200);
-            gameState.bottleAngle = 0;
-        }
-        gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.035;
+
+        gameState.bottleBaseX += gameState.baseVelocity;
+        gameState.baseVelocity *= friction;
+
+        if (gameState.bottleBaseX < 20 || gameState.bottleBaseX > 780) loseLife("BOTTLE FELL!");
     }
-
-    gameState.bottleBaseX += gameState.baseVelocity;
-    gameState.baseVelocity *= friction;
-
-    if (gameState.bottleBaseX < 30 || gameState.bottleBaseX > 770) loseLife("BOTTLE FELL!");
 
     gameState.confetti.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
@@ -216,87 +179,86 @@ function updatePhysics() {
 }
 
 function drawGame() {
+    ctx.clearRect(0, 0, 800, 450);
     ctx.save();
+
+    // 1. Shake Logic
     if (gameState.shakeTime > 0) {
         ctx.translate((Math.random()-0.5)*gameState.shakeIntensity, (Math.random()-0.5)*gameState.shakeIntensity);
         gameState.shakeTime--;
     }
 
-    ctx.clearRect(0, 0, 800, 450);
-
-    // Rain
+    // 2. Rain
     ctx.strokeStyle = "rgba(0, 242, 255, 0.4)";
     ctx.lineWidth = 1;
     gameState.rain.forEach(r => {
         ctx.beginPath();
         ctx.moveTo(r.x, r.y);
-        ctx.lineTo(r.x + (gameState.windForce * 120), r.y + r.len);
+        ctx.lineTo(r.x + (gameState.windForce * 150), r.y + r.len);
         ctx.stroke();
     });
 
-    // Table Line
+    // 3. Table Line
     ctx.shadowBlur = 15; ctx.shadowColor = "#00f2ff";
     ctx.fillStyle = "#00f2ff"; ctx.fillRect(0, 350, 800, 4);
     ctx.shadowBlur = 0;
 
-    // Bottle
+    // 4. Bottle
     ctx.save();
-    ctx.translate(gameState.bottleBaseX, 350); ctx.rotate(gameState.bottleAngle);
+    ctx.translate(gameState.bottleBaseX, 350); 
+    ctx.rotate(gameState.bottleAngle);
     ctx.shadowBlur = 20; ctx.shadowColor = gameState.currentPalette[1];
     const grad = ctx.createLinearGradient(0, -42, 0, 0);
-    grad.addColorStop(0, gameState.currentPalette[0]); grad.addColorStop(0.5, gameState.currentPalette[1]); grad.addColorStop(1, gameState.currentPalette[2]);
+    grad.addColorStop(0, gameState.currentPalette[0]); 
+    grad.addColorStop(0.5, gameState.currentPalette[1]); 
+    grad.addColorStop(1, gameState.currentPalette[2]);
     ctx.fillStyle = grad;
-    ctx.roundRect(0, -42, 130, 42, 8); ctx.fill();
-    ctx.fillRect(130, -31, 40, 20);
-    ctx.fillStyle = "#ff4444"; ctx.fillRect(170, -33, 10, 24);
+    ctx.roundRect(0, -42, 130, 42, 8); 
+    ctx.fill();
+    ctx.fillRect(130, -31, 40, 20); // Neck
+    ctx.fillStyle = "#ff4444"; ctx.fillRect(170, -33, 10, 24); // Cap
     ctx.restore();
 
-    // Rope
-    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(400, 0);
-    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 3000); 
+    // 5. Curved Rope
+    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; 
+    ctx.lineWidth = 2;
+    ctx.beginPath(); 
+    ctx.moveTo(400, 0);
+    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 3500); 
     ctx.quadraticCurveTo(controlX, (0 + gameState.ringY) / 2, gameState.ringX, gameState.ringY);
     ctx.stroke();
 
-    // Ring
-    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#fff"; ctx.lineWidth = 5;
+    // 6. Ring
+    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#fff"; 
+    ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
-    // Lightning Flash Overlay
+    // 7. Lightning Flash
     if (gameState.flashAlpha > 0) {
         ctx.fillStyle = `rgba(255, 255, 255, ${gameState.flashAlpha})`;
         ctx.fillRect(0, 0, 800, 450);
     }
 
-    // UI Timer Bar
+    // 8. Confetti
+    gameState.confetti.forEach(p => { 
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); 
+    });
+    
+    ctx.restore(); // Ensure coordinate system is reset
+
+    // 9. UI Timer Bar (Always static)
     const prog = Math.max(0, gameState.timeLeft / gameState.maxTime);
     ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(780, 125, 8, 200);
     ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
     ctx.fillRect(780, 125 + (200 * (1 - prog)), 8, 200 * prog);
-
-    // Confetti
-    gameState.confetti.forEach(p => { 
-        ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); 
-    });
-    ctx.globalAlpha = 1.0;
-    ctx.restore();
-}
-
-function triggerGameOver(reason) {
-    gameState.gameOver = true;
-    document.getElementById("deathReason").textContent = reason;
-    document.getElementById("finalScore").textContent = gameState.score;
-    document.getElementById("gameOverOverlay").classList.remove("hidden");
-    if (gameState.score > gameState.bestScore) {
-        gameState.bestScore = gameState.score;
-        localStorage.setItem("standByMeBest", gameState.bestScore);
-    }
 }
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver || gameState.paused) return;
-    if (gameState.bottleAngle <= -1.46 && Math.abs(gameState.baseVelocity) < 0.25) {
-        gameState.hasWon = true; gameState.score += 100; playWinSound(); triggerShake(12);
+    if (gameState.bottleAngle <= -1.46 && Math.abs(gameState.baseVelocity) < 0.2) {
+        gameState.hasWon = true; 
+        gameState.score += 100; 
+        playWinSound();
         for(let i=0; i<80; i++) {
             gameState.confetti.push({
                 x: gameState.bottleBaseX + 60, y: 280, vx: (Math.random()-0.5)*15, 
@@ -308,7 +270,7 @@ function checkWin() {
     }
 }
 
-// Logic for level UI update
+// Sidebar/Objective Logic
 function updateLevelSidebar() {
     const list = document.getElementById("levelList");
     if (!list) return;
@@ -319,6 +281,22 @@ function updateLevelSidebar() {
         li.innerHTML = `<span>LV ${i}</span> <span>${i < gameState.level ? '✓' : (i === gameState.level ? 'LIVE' : '🔒')}</span>`;
         list.appendChild(li);
     }
+}
+
+function checkObjectives() {
+    let unlockedLv = 1;
+    if (gameState.level >= 20) unlockedLv = 20;
+    else if (gameState.level >= 15) unlockedLv = 15;
+    else if (gameState.level >= 10) unlockedLv = 10;
+    else if (gameState.level >= 5) unlockedLv = 5;
+    gameState.currentPalette = gameState.skins[unlockedLv];
+}
+
+function resetRing() {
+    gameState.isHooked = false; 
+    gameState.isDragging = false;
+    gameState.ringX = 400; 
+    gameState.ringY = 150;
 }
 
 // Button Listeners
@@ -352,4 +330,20 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', () => gameState.isDragging = false);
 
-window.onload = () => { canvas.width = 800; canvas.height = 450; init(); const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; loop(); };
+window.onload = () => { 
+    canvas.width = 800; canvas.height = 450; 
+    init(); 
+    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; 
+    loop(); 
+};
+
+function triggerGameOver(reason) {
+    gameState.gameOver = true;
+    document.getElementById("deathReason").textContent = reason;
+    document.getElementById("finalScore").textContent = gameState.score;
+    document.getElementById("gameOverOverlay").classList.remove("hidden");
+    if (gameState.score > gameState.bestScore) {
+        gameState.bestScore = gameState.score;
+        localStorage.setItem("standByMeBest", gameState.bestScore);
+    }
+}
