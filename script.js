@@ -41,7 +41,7 @@ const gameState = {
     level: 1, score: 0, bestScore: localStorage.getItem("standByMeBest") || 0,
     bottleAngle: 0, bottleBaseX: 300, originalBaseX: 300, 
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
-    baseVelocity: 0, confetti: [], smoke: [],
+    baseVelocity: 0, confetti: [], smoke: [], rain: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
     shakeTime: 0, shakeIntensity: 0,
     windForce: 0, windTarget: 0, windLines: [],
@@ -58,25 +58,47 @@ function triggerShake(intensity) {
     gameState.shakeIntensity = intensity;
 }
 
-function updateWind() {
-    if (gameState.level < 5) return;
-    if (Math.random() > 0.98) {
-        gameState.windTarget = (Math.random() - 0.5) * (gameState.level * 0.02);
-    }
-    gameState.windForce += (gameState.windTarget - gameState.windForce) * 0.02;
+function updateWeather() {
+    // 1. STRONGER WIND LOGIC
+    if (gameState.level >= 3) {
+        // High frequency changes + higher multiplier
+        if (Math.random() > 0.95) {
+            const intensity = 0.04 + (gameState.level * 0.015); 
+            gameState.windTarget = (Math.random() - 0.5) * intensity;
+        }
+        gameState.windForce += (gameState.windTarget - gameState.windForce) * 0.08;
 
-    if (Math.random() > 0.85) {
-        gameState.windLines.push({
-            x: gameState.windForce > 0 ? -50 : 850,
-            y: Math.random() * 350,
-            w: 30 + Math.random() * 50,
-            speed: gameState.windForce * 60 + (gameState.windForce > 0 ? 3 : -3)
-        });
+        if (Math.random() > 0.7) {
+            gameState.windLines.push({
+                x: gameState.windForce > 0 ? -100 : 900,
+                y: Math.random() * 400,
+                w: 40 + Math.random() * 60,
+                speed: gameState.windForce * 100 + (gameState.windForce > 0 ? 5 : -5)
+            });
+        }
     }
+
+    // 2. RAIN LOGIC (Starts LV 5)
+    if (gameState.level >= 5) {
+        if (gameState.rain.length < 100) {
+            gameState.rain.push({
+                x: Math.random() * 800, y: -20,
+                speed: 10 + Math.random() * 10,
+                len: 15 + Math.random() * 10
+            });
+        }
+    }
+    
+    gameState.rain.forEach((r, i) => {
+        r.y += r.speed;
+        r.x += gameState.windForce * 50; // Rain slants with wind
+        if (r.y > 450) { r.y = -20; r.x = Math.random() * 800; }
+    });
+
     for (let i = gameState.windLines.length - 1; i >= 0; i--) {
         let l = gameState.windLines[i];
         l.x += l.speed;
-        if (l.x < -100 || l.x > 900) gameState.windLines.splice(i, 1);
+        if (l.x < -150 || l.x > 950) gameState.windLines.splice(i, 1);
     }
 }
 
@@ -115,6 +137,7 @@ function init() {
     gameState.hasWon = false;
     gameState.confetti = [];
     gameState.windLines = [];
+    gameState.rain = [];
     gameState.windForce = 0;
     gameState.windTarget = 0;
     document.getElementById("score").textContent = gameState.score;
@@ -148,21 +171,23 @@ function updatePhysics() {
     gameState.lastTime = now;
     gameState.timeLeft -= dt;
     
-    updateWind();
+    updateWeather();
 
     if (gameState.timeLeft <= 0) triggerGameOver("TIME'S UP!");
 
-    const gravity = 0.045 + (Math.min(gameState.level, 20) * 0.004); 
-    const friction = 0.96;
+    // Gravity becomes more "slippery" at high levels
+    const gravity = 0.045 + (Math.min(gameState.level, 20) * 0.006); 
+    const friction = 0.965; // Slightly less friction = harder to stop
 
     const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
     const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
 
+    // Apply Wind Force to Bottle
     gameState.baseVelocity += gameState.windForce;
 
     if (gameState.isHooked) {
         const dist = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
-        if (dist > 75) {
+        if (dist > 80) {
             gameState.isHooked = false; 
             playClink(0.1, 400);
         } else {
@@ -176,13 +201,13 @@ function updatePhysics() {
             if (gameState.bottleAngle > 0.1) playClink(0.05, 200);
             gameState.bottleAngle = 0;
         }
-        gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.03;
+        gameState.baseVelocity += (gameState.originalBaseX - gameState.bottleBaseX) * 0.035;
     }
 
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= friction;
 
-    if (gameState.bottleBaseX < 50 || gameState.bottleBaseX > 750) triggerGameOver("BOTTLE FELL!");
+    if (gameState.bottleBaseX < 30 || gameState.bottleBaseX > 770) triggerGameOver("BOTTLE FELL!");
 
     gameState.confetti.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
@@ -199,11 +224,22 @@ function drawGame() {
 
     ctx.clearRect(0, 0, 800, 450);
 
-    // Wind Lines
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    // Wind Lines (Background)
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
     ctx.lineWidth = 1;
     gameState.windLines.forEach(l => {
         ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(l.x + l.w, l.y); ctx.stroke();
+    });
+
+    // Rain
+    ctx.strokeStyle = "rgba(0, 242, 255, 0.3)";
+    ctx.lineWidth = 1;
+    gameState.rain.forEach(r => {
+        ctx.beginPath();
+        ctx.moveTo(r.x, r.y);
+        // Rain slants based on wind
+        ctx.lineTo(r.x + (gameState.windForce * 100), r.y + r.len);
+        ctx.stroke();
     });
 
     // Table Line
@@ -223,13 +259,12 @@ function drawGame() {
     ctx.fillStyle = "#ff4444"; ctx.fillRect(170, -33, 10, 24);
     ctx.restore();
 
-    // Curved Rope Logic
+    // Curved Rope
     ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; 
     ctx.lineWidth = 2;
     ctx.beginPath(); 
     ctx.moveTo(400, 0);
-    // Control point moves with wind to create the curve
-    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 1500);
+    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 2500); // Stronger curve
     const controlY = (0 + gameState.ringY) / 2;
     ctx.quadraticCurveTo(controlX, controlY, gameState.ringX, gameState.ringY);
     ctx.stroke();
@@ -262,8 +297,9 @@ function triggerGameOver(reason) {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver || gameState.paused) return;
-    if (gameState.bottleAngle <= -1.45 && Math.abs(gameState.baseVelocity) < 0.4) {
-        gameState.hasWon = true; gameState.score += 100; playWinSound(); triggerShake(10);
+    // Win condition: Bottle is vertical and stable despite the wind!
+    if (gameState.bottleAngle <= -1.46 && Math.abs(gameState.baseVelocity) < 0.3) {
+        gameState.hasWon = true; gameState.score += 100; playWinSound(); triggerShake(12);
         for(let i=0; i<80; i++) {
             gameState.confetti.push({
                 x: gameState.bottleBaseX + 60, y: 280, vx: (Math.random()-0.5)*15, 
@@ -294,7 +330,7 @@ document.getElementById("startBtn").onclick = () => {
 };
 document.getElementById("restartBtn").onclick = () => {
     initAudio(); gameState.paused = false;
-    document.getElementById("gameOverOverlay").classList.add("hidden");
+    document.getElementById("gameOverOverlay").classList.remove("hidden");
     init(); gameState.lastTime = performance.now();
 };
 
