@@ -2,6 +2,7 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let audioCtx = null;
 
+// Audio Initialization
 function initAudio() {
     try {
         if (!audioCtx) {
@@ -36,13 +37,14 @@ function playWinSound() {
     });
 }
 
+// Game State
 const gameState = {
     paused: true, gameOver: false, hasWon: false,
     level: 1, score: 0, lives: 3,
     bestScore: localStorage.getItem("standByMeBest") || 0,
     bottleAngle: 0, bottleBaseX: 300, originalBaseX: 300, 
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
-    baseVelocity: 0, confetti: [], smoke: [], rain: [],
+    baseVelocity: 0, confetti: [], rain: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
     shakeTime: 0, shakeIntensity: 0, flashAlpha: 0,
     windForce: 0, windTarget: 0, windLines: [],
@@ -60,29 +62,32 @@ function triggerShake(intensity) {
 }
 
 function updateWeather() {
+    // 1. STRONGER WIND (Starts LV 3)
     if (gameState.level >= 3) {
-        if (Math.random() > 0.96) {
-            const intensity = 0.06 + (gameState.level * 0.02); 
+        if (Math.random() > 0.94) {
+            const intensity = 0.08 + (gameState.level * 0.02); 
             gameState.windTarget = (Math.random() - 0.5) * intensity;
         }
         gameState.windForce += (gameState.windTarget - gameState.windForce) * 0.08;
     }
 
-    if (gameState.level >= 10 && Math.random() > 0.997) {
+    // 2. LIGHTNING (Starts LV 10)
+    if (gameState.level >= 10 && Math.random() > 0.996) {
         gameState.flashAlpha = 0.8;
-        gameState.windTarget = (Math.random() - 0.5) * (0.2 + gameState.level * 0.02);
+        gameState.windTarget = (Math.random() - 0.5) * (0.3 + gameState.level * 0.02);
+        triggerShake(15);
     }
-    if (gameState.flashAlpha > 0) gameState.flashAlpha -= 0.05;
+    if (gameState.flashAlpha > 0) gameState.flashAlpha -= 0.04;
 
+    // 3. NEON RAIN (Starts LV 5)
     if (gameState.level >= 5) {
         if (gameState.rain.length < 100) {
-            gameState.rain.push({ x: Math.random() * 800, y: -50, speed: 15 + Math.random() * 10, len: 20 });
+            gameState.rain.push({ x: Math.random() * 800, y: -50, speed: 14 + Math.random() * 8, len: 20 });
         }
     }
-    
     gameState.rain.forEach((r) => {
         r.y += r.speed;
-        r.x += gameState.windForce * 80;
+        r.x += gameState.windForce * 100; // Rain slants with wind
         if (r.y > 450) { r.y = -50; r.x = Math.random() * 800; }
     });
 }
@@ -119,7 +124,8 @@ function updateUI() {
 
 function loseLife(reason) {
     gameState.lives--;
-    triggerShake(20);
+    triggerShake(25);
+    playClink(0.5, 100);
     if (gameState.lives <= 0) {
         triggerGameOver(reason);
     } else {
@@ -139,7 +145,7 @@ function updatePhysics() {
         updateWeather();
         if (gameState.timeLeft <= 0) loseLife("TIME'S UP!");
 
-        const gravity = 0.045 + (Math.min(gameState.level, 20) * 0.008); 
+        const gravity = 0.05 + (Math.min(gameState.level, 20) * 0.009); 
         const friction = 0.96;
 
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
@@ -158,7 +164,10 @@ function updatePhysics() {
                 gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
             }
         } else {
+            // Falls if not hooked and too tilted
             if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
+            if (gameState.bottleAngle < -0.65) { loseLife("BOTTLE TIPPED!"); return; } 
+            
             if (gameState.bottleAngle > 0) {
                 if (gameState.bottleAngle > 0.1) playClink(0.05, 200);
                 gameState.bottleAngle = 0;
@@ -169,7 +178,7 @@ function updatePhysics() {
         gameState.bottleBaseX += gameState.baseVelocity;
         gameState.baseVelocity *= friction;
 
-        if (gameState.bottleBaseX < 20 || gameState.bottleBaseX > 780) loseLife("BOTTLE FELL!");
+        if (gameState.bottleBaseX < 20 || gameState.bottleBaseX > 780) loseLife("BOTTLE SLID OFF!");
     }
 
     gameState.confetti.forEach((p, i) => {
@@ -182,28 +191,17 @@ function drawGame() {
     ctx.clearRect(0, 0, 800, 450);
     ctx.save();
 
-    // 1. Shake Logic
     if (gameState.shakeTime > 0) {
         ctx.translate((Math.random()-0.5)*gameState.shakeIntensity, (Math.random()-0.5)*gameState.shakeIntensity);
         gameState.shakeTime--;
     }
 
-    // 2. Rain
-    ctx.strokeStyle = "rgba(0, 242, 255, 0.4)";
-    ctx.lineWidth = 1;
-    gameState.rain.forEach(r => {
-        ctx.beginPath();
-        ctx.moveTo(r.x, r.y);
-        ctx.lineTo(r.x + (gameState.windForce * 150), r.y + r.len);
-        ctx.stroke();
-    });
-
-    // 3. Table Line
+    // Table
     ctx.shadowBlur = 15; ctx.shadowColor = "#00f2ff";
     ctx.fillStyle = "#00f2ff"; ctx.fillRect(0, 350, 800, 4);
     ctx.shadowBlur = 0;
 
-    // 4. Bottle
+    // Bottle
     ctx.save();
     ctx.translate(gameState.bottleBaseX, 350); 
     ctx.rotate(gameState.bottleAngle);
@@ -213,40 +211,47 @@ function drawGame() {
     grad.addColorStop(0.5, gameState.currentPalette[1]); 
     grad.addColorStop(1, gameState.currentPalette[2]);
     ctx.fillStyle = grad;
-    ctx.roundRect(0, -42, 130, 42, 8); 
-    ctx.fill();
-    ctx.fillRect(130, -31, 40, 20); // Neck
-    ctx.fillStyle = "#ff4444"; ctx.fillRect(170, -33, 10, 24); // Cap
+    ctx.roundRect(0, -42, 130, 42, 8); ctx.fill();
+    ctx.fillRect(130, -31, 40, 20);
+    ctx.fillStyle = "#ff4444"; ctx.fillRect(170, -33, 10, 24);
     ctx.restore();
 
-    // 5. Curved Rope
+    // Curved Rope
     ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; 
     ctx.lineWidth = 2;
     ctx.beginPath(); 
     ctx.moveTo(400, 0);
-    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 3500); 
+    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 4000); 
     ctx.quadraticCurveTo(controlX, (0 + gameState.ringY) / 2, gameState.ringX, gameState.ringY);
     ctx.stroke();
 
-    // 6. Ring
+    // Ring
     ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#fff"; 
     ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
 
-    // 7. Lightning Flash
+    // Rain
+    ctx.strokeStyle = "rgba(0, 242, 255, 0.4)";
+    gameState.rain.forEach(r => {
+        ctx.beginPath(); ctx.moveTo(r.x, r.y);
+        ctx.lineTo(r.x + (gameState.windForce * 200), r.y + r.len);
+        ctx.stroke();
+    });
+
+    // Lightning Flash
     if (gameState.flashAlpha > 0) {
         ctx.fillStyle = `rgba(255, 255, 255, ${gameState.flashAlpha})`;
         ctx.fillRect(0, 0, 800, 450);
     }
 
-    // 8. Confetti
+    // Confetti
     gameState.confetti.forEach(p => { 
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); 
     });
     
-    ctx.restore(); // Ensure coordinate system is reset
+    ctx.restore();
 
-    // 9. UI Timer Bar (Always static)
+    // Static UI
     const prog = Math.max(0, gameState.timeLeft / gameState.maxTime);
     ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(780, 125, 8, 200);
     ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
@@ -255,10 +260,8 @@ function drawGame() {
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver || gameState.paused) return;
-    if (gameState.bottleAngle <= -1.46 && Math.abs(gameState.baseVelocity) < 0.2) {
-        gameState.hasWon = true; 
-        gameState.score += 100; 
-        playWinSound();
+    if (gameState.bottleAngle <= -1.47 && Math.abs(gameState.baseVelocity) < 0.15) {
+        gameState.hasWon = true; gameState.score += 100; playWinSound();
         for(let i=0; i<80; i++) {
             gameState.confetti.push({
                 x: gameState.bottleBaseX + 60, y: 280, vx: (Math.random()-0.5)*15, 
@@ -270,7 +273,7 @@ function checkWin() {
     }
 }
 
-// Sidebar/Objective Logic
+// Logic for level UI update
 function updateLevelSidebar() {
     const list = document.getElementById("levelList");
     if (!list) return;
@@ -293,19 +296,11 @@ function checkObjectives() {
 }
 
 function resetRing() {
-    gameState.isHooked = false; 
-    gameState.isDragging = false;
-    gameState.ringX = 400; 
-    gameState.ringY = 150;
+    gameState.isHooked = false; gameState.isDragging = false;
+    gameState.ringX = 400; gameState.ringY = 150;
 }
 
-// Button Listeners
-document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
-document.getElementById("resumeBtn").onclick = () => { initAudio(); gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
-document.getElementById("resetBtn").onclick = () => location.reload();
-document.getElementById("startBtn").onclick = () => { initAudio(); gameState.paused = false; document.getElementById("tutorialOverlay").classList.add("hidden"); init(); gameState.lastTime = performance.now(); };
-document.getElementById("restartBtn").onclick = () => { initAudio(); gameState.paused = false; document.getElementById("gameOverOverlay").classList.add("hidden"); init(); gameState.lastTime = performance.now(); };
-
+// Controls
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (800 / rect.width);
@@ -330,20 +325,23 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', () => gameState.isDragging = false);
 
-window.onload = () => { 
-    canvas.width = 800; canvas.height = 450; 
-    init(); 
-    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; 
-    loop(); 
-};
+// Button Listeners
+document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
+document.getElementById("resumeBtn").onclick = () => { initAudio(); gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
+document.getElementById("resetBtn").onclick = () => location.reload();
+document.getElementById("startBtn").onclick = () => { initAudio(); gameState.paused = false; document.getElementById("tutorialOverlay").classList.add("hidden"); init(); gameState.lastTime = performance.now(); };
+document.getElementById("restartBtn").onclick = () => { initAudio(); gameState.paused = false; document.getElementById("gameOverOverlay").classList.add("hidden"); init(); gameState.lastTime = performance.now(); };
 
 function triggerGameOver(reason) {
     gameState.gameOver = true;
     document.getElementById("deathReason").textContent = reason;
     document.getElementById("finalScore").textContent = gameState.score;
     document.getElementById("gameOverOverlay").classList.remove("hidden");
-    if (gameState.score > gameState.bestScore) {
-        gameState.bestScore = gameState.score;
-        localStorage.setItem("standByMeBest", gameState.bestScore);
-    }
 }
+
+window.onload = () => { 
+    canvas.width = 800; canvas.height = 450; 
+    init(); 
+    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; 
+    loop(); 
+};
