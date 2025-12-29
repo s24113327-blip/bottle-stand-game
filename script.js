@@ -38,12 +38,13 @@ function playWinSound() {
 
 const gameState = {
     paused: true, gameOver: false, hasWon: false,
-    level: 1, score: 0, bestScore: localStorage.getItem("standByMeBest") || 0,
+    level: 1, score: 0, lives: 3, // NEW: Life system
+    bestScore: localStorage.getItem("standByMeBest") || 0,
     bottleAngle: 0, bottleBaseX: 300, originalBaseX: 300, 
     ringX: 400, ringY: 150, isDragging: false, isHooked: false,
     baseVelocity: 0, confetti: [], smoke: [], rain: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
-    shakeTime: 0, shakeIntensity: 0,
+    shakeTime: 0, shakeIntensity: 0, flashAlpha: 0, // NEW: Flash for lightning
     windForce: 0, windTarget: 0, windLines: [],
     currentPalette: ["#064e3b", "#10b981", "#064e3b"],
     skins: {
@@ -59,15 +60,14 @@ function triggerShake(intensity) {
 }
 
 function updateWeather() {
-    // 1. STRONGER WIND LOGIC
     if (gameState.level >= 3) {
-        // High frequency changes + higher multiplier
         if (Math.random() > 0.95) {
-            const intensity = 0.04 + (gameState.level * 0.015); 
+            const intensity = 0.05 + (gameState.level * 0.02); 
             gameState.windTarget = (Math.random() - 0.5) * intensity;
         }
         gameState.windForce += (gameState.windTarget - gameState.windForce) * 0.08;
 
+        // Visual Wind Lines
         if (Math.random() > 0.7) {
             gameState.windLines.push({
                 x: gameState.windForce > 0 ? -100 : 900,
@@ -78,20 +78,28 @@ function updateWeather() {
         }
     }
 
-    // 2. RAIN LOGIC (Starts LV 5)
+    // Lightning (LV 10+)
+    if (gameState.level >= 10 && Math.random() > 0.997) {
+        gameState.flashAlpha = 1.0;
+        gameState.windTarget = (Math.random() - 0.5) * (0.1 + gameState.level * 0.02); // Chaos!
+        playClink(0.3, 100); // Low thunder sound
+    }
+    if (gameState.flashAlpha > 0) gameState.flashAlpha -= 0.05;
+
+    // Rain (LV 5+)
     if (gameState.level >= 5) {
-        if (gameState.rain.length < 100) {
+        if (gameState.rain.length < 120) {
             gameState.rain.push({
                 x: Math.random() * 800, y: -20,
-                speed: 10 + Math.random() * 10,
+                speed: 12 + Math.random() * 10,
                 len: 15 + Math.random() * 10
             });
         }
     }
     
-    gameState.rain.forEach((r, i) => {
+    gameState.rain.forEach((r) => {
         r.y += r.speed;
-        r.x += gameState.windForce * 50; // Rain slants with wind
+        r.x += gameState.windForce * 60;
         if (r.y > 450) { r.y = -20; r.x = Math.random() * 800; }
     });
 
@@ -102,33 +110,35 @@ function updateWeather() {
     }
 }
 
-function updateLevelSidebar() {
-    const list = document.getElementById("levelList");
-    if (!list) return;
-    list.innerHTML = "";
-    for (let i = 1; i <= Math.max(5, gameState.level + 2); i++) {
-        const li = document.createElement("li");
-        li.className = "level-item" + (i < gameState.level ? " cleared" : (i === gameState.level ? " active" : ""));
-        li.innerHTML = `<span>LV ${i}</span> <span>${i < gameState.level ? '✓' : (i === gameState.level ? 'LIVE' : '🔒')}</span>`;
-        list.appendChild(li);
+function updateUI() {
+    document.getElementById("score").textContent = gameState.score;
+    document.getElementById("level").textContent = gameState.level;
+    document.getElementById("bestScore").textContent = gameState.bestScore;
+    
+    // Display lives as hearts
+    const livesDisplay = "❤️".repeat(gameState.lives);
+    const lifeContainer = document.getElementById("livesDisplay");
+    if(lifeContainer) lifeContainer.textContent = livesDisplay;
+}
+
+function loseLife(reason) {
+    gameState.lives--;
+    triggerShake(15);
+    playClink(0.4, 150);
+    
+    if (gameState.lives <= 0) {
+        triggerGameOver(reason);
+    } else {
+        // Reset level but keep score/lives
+        init(true); 
     }
 }
 
-function checkObjectives() {
-    let unlockedLv = 1;
-    if (gameState.level >= 20) unlockedLv = 20;
-    else if (gameState.level >= 15) unlockedLv = 15;
-    else if (gameState.level >= 10) unlockedLv = 10;
-    else if (gameState.level >= 5) unlockedLv = 5;
-    gameState.currentPalette = gameState.skins[unlockedLv];
-    
-    document.querySelectorAll('.dot').forEach((dot, idx) => {
-        const thresholds = [1, 5, 10, 15, 20];
-        if (gameState.level >= thresholds[idx]) dot.classList.add('active');
-    });
-}
-
-function init() {
+function init(keepLives = false) {
+    if (!keepLives) {
+        gameState.lives = 3;
+        gameState.score = 0;
+    }
     gameState.bottleBaseX = gameState.originalBaseX;
     gameState.bottleAngle = 0;
     gameState.gameOver = false; 
@@ -140,19 +150,11 @@ function init() {
     gameState.rain = [];
     gameState.windForce = 0;
     gameState.windTarget = 0;
-    document.getElementById("score").textContent = gameState.score;
-    document.getElementById("level").textContent = gameState.level;
-    document.getElementById("bestScore").textContent = gameState.bestScore;
+    
+    updateUI();
     updateLevelSidebar();
     checkObjectives();
     resetRing();
-}
-
-function resetRing() {
-    gameState.isHooked = false; 
-    gameState.isDragging = false;
-    gameState.ringX = 400; 
-    gameState.ringY = 150;
 }
 
 function updatePhysics() {
@@ -173,16 +175,14 @@ function updatePhysics() {
     
     updateWeather();
 
-    if (gameState.timeLeft <= 0) triggerGameOver("TIME'S UP!");
+    if (gameState.timeLeft <= 0) loseLife("TIME'S UP!");
 
-    // Gravity becomes more "slippery" at high levels
-    const gravity = 0.045 + (Math.min(gameState.level, 20) * 0.006); 
-    const friction = 0.965; // Slightly less friction = harder to stop
+    const gravity = 0.045 + (Math.min(gameState.level, 20) * 0.007); 
+    const friction = 0.965;
 
     const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
     const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
 
-    // Apply Wind Force to Bottle
     gameState.baseVelocity += gameState.windForce;
 
     if (gameState.isHooked) {
@@ -207,7 +207,7 @@ function updatePhysics() {
     gameState.bottleBaseX += gameState.baseVelocity;
     gameState.baseVelocity *= friction;
 
-    if (gameState.bottleBaseX < 30 || gameState.bottleBaseX > 770) triggerGameOver("BOTTLE FELL!");
+    if (gameState.bottleBaseX < 30 || gameState.bottleBaseX > 770) loseLife("BOTTLE FELL!");
 
     gameState.confetti.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= 0.02;
@@ -224,21 +224,13 @@ function drawGame() {
 
     ctx.clearRect(0, 0, 800, 450);
 
-    // Wind Lines (Background)
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-    ctx.lineWidth = 1;
-    gameState.windLines.forEach(l => {
-        ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(l.x + l.w, l.y); ctx.stroke();
-    });
-
     // Rain
-    ctx.strokeStyle = "rgba(0, 242, 255, 0.3)";
+    ctx.strokeStyle = "rgba(0, 242, 255, 0.4)";
     ctx.lineWidth = 1;
     gameState.rain.forEach(r => {
         ctx.beginPath();
         ctx.moveTo(r.x, r.y);
-        // Rain slants based on wind
-        ctx.lineTo(r.x + (gameState.windForce * 100), r.y + r.len);
+        ctx.lineTo(r.x + (gameState.windForce * 120), r.y + r.len);
         ctx.stroke();
     });
 
@@ -259,20 +251,22 @@ function drawGame() {
     ctx.fillStyle = "#ff4444"; ctx.fillRect(170, -33, 10, 24);
     ctx.restore();
 
-    // Curved Rope
-    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; 
-    ctx.lineWidth = 2;
-    ctx.beginPath(); 
-    ctx.moveTo(400, 0);
-    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 2500); // Stronger curve
-    const controlY = (0 + gameState.ringY) / 2;
-    ctx.quadraticCurveTo(controlX, controlY, gameState.ringX, gameState.ringY);
+    // Rope
+    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(400, 0);
+    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 3000); 
+    ctx.quadraticCurveTo(controlX, (0 + gameState.ringY) / 2, gameState.ringX, gameState.ringY);
     ctx.stroke();
 
     // Ring
-    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#fff"; 
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#fff"; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(gameState.ringX, gameState.ringY, 22, 0, Math.PI*2); ctx.stroke();
+
+    // Lightning Flash Overlay
+    if (gameState.flashAlpha > 0) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${gameState.flashAlpha})`;
+        ctx.fillRect(0, 0, 800, 450);
+    }
 
     // UI Timer Bar
     const prog = Math.max(0, gameState.timeLeft / gameState.maxTime);
@@ -293,12 +287,15 @@ function triggerGameOver(reason) {
     document.getElementById("deathReason").textContent = reason;
     document.getElementById("finalScore").textContent = gameState.score;
     document.getElementById("gameOverOverlay").classList.remove("hidden");
+    if (gameState.score > gameState.bestScore) {
+        gameState.bestScore = gameState.score;
+        localStorage.setItem("standByMeBest", gameState.bestScore);
+    }
 }
 
 function checkWin() {
     if (gameState.hasWon || gameState.gameOver || gameState.paused) return;
-    // Win condition: Bottle is vertical and stable despite the wind!
-    if (gameState.bottleAngle <= -1.46 && Math.abs(gameState.baseVelocity) < 0.3) {
+    if (gameState.bottleAngle <= -1.46 && Math.abs(gameState.baseVelocity) < 0.25) {
         gameState.hasWon = true; gameState.score += 100; playWinSound(); triggerShake(12);
         for(let i=0; i<80; i++) {
             gameState.confetti.push({
@@ -306,33 +303,30 @@ function checkWin() {
                 vy: (Math.random()-0.5)*15 - 5, color: `hsl(${Math.random()*360}, 100%, 50%)`, life: 1.0
             });
         }
-        document.getElementById("score").textContent = gameState.score;
-        setTimeout(() => { gameState.level++; init(); gameState.lastTime = performance.now(); }, 2000);
+        updateUI();
+        setTimeout(() => { gameState.level++; init(true); gameState.lastTime = performance.now(); }, 2000);
+    }
+}
+
+// Logic for level UI update
+function updateLevelSidebar() {
+    const list = document.getElementById("levelList");
+    if (!list) return;
+    list.innerHTML = "";
+    for (let i = 1; i <= Math.max(5, gameState.level + 2); i++) {
+        const li = document.createElement("li");
+        li.className = "level-item" + (i < gameState.level ? " cleared" : (i === gameState.level ? " active" : ""));
+        li.innerHTML = `<span>LV ${i}</span> <span>${i < gameState.level ? '✓' : (i === gameState.level ? 'LIVE' : '🔒')}</span>`;
+        list.appendChild(li);
     }
 }
 
 // Button Listeners
-document.getElementById("pauseBtn").onclick = () => {
-    gameState.paused = true;
-    document.getElementById("pauseOverlay").classList.remove("hidden");
-};
-document.getElementById("resumeBtn").onclick = () => {
-    initAudio();
-    gameState.paused = false;
-    gameState.lastTime = performance.now();
-    document.getElementById("pauseOverlay").classList.add("hidden");
-};
+document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
+document.getElementById("resumeBtn").onclick = () => { initAudio(); gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
 document.getElementById("resetBtn").onclick = () => location.reload();
-document.getElementById("startBtn").onclick = () => {
-    initAudio(); gameState.paused = false;
-    document.getElementById("tutorialOverlay").classList.add("hidden");
-    init(); gameState.lastTime = performance.now();
-};
-document.getElementById("restartBtn").onclick = () => {
-    initAudio(); gameState.paused = false;
-    document.getElementById("gameOverOverlay").classList.remove("hidden");
-    init(); gameState.lastTime = performance.now();
-};
+document.getElementById("startBtn").onclick = () => { initAudio(); gameState.paused = false; document.getElementById("tutorialOverlay").classList.add("hidden"); init(); gameState.lastTime = performance.now(); };
+document.getElementById("restartBtn").onclick = () => { initAudio(); gameState.paused = false; document.getElementById("gameOverOverlay").classList.add("hidden"); init(); gameState.lastTime = performance.now(); };
 
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
@@ -358,8 +352,4 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', () => gameState.isDragging = false);
 
-window.onload = () => { 
-    canvas.width = 800; canvas.height = 450; init();
-    const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; 
-    loop(); 
-};
+window.onload = () => { canvas.width = 800; canvas.height = 450; init(); const loop = () => { updatePhysics(); checkWin(); drawGame(); requestAnimationFrame(loop); }; loop(); };
