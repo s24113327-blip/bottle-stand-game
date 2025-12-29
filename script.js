@@ -43,11 +43,14 @@ const gameState = {
     level: 1, score: 0, lives: 3,
     bestScore: localStorage.getItem("standByMeBest") || 0,
     bottleAngle: 0, bottleBaseX: 300, originalBaseX: 300, 
-    ringX: 400, ringY: 150, isDragging: false, isHooked: false,
+    // Pendulum Ring Physics
+    ringX: 400, ringY: 150, ringVX: 0, ringVY: 0,
+    mouseX: 400, mouseY: 50, // This is the "Anchor"
+    isDragging: false, isHooked: false,
     baseVelocity: 0, confetti: [], rain: [],
     timeLeft: 20, maxTime: 20, lastTime: 0,
     shakeTime: 0, shakeIntensity: 0, flashAlpha: 0,
-    windForce: 0, windTarget: 0, windLines: [],
+    windForce: 0, windTarget: 0,
     currentPalette: ["#064e3b", "#10b981", "#064e3b"],
     skins: {
         1: ["#064e3b", "#10b981", "#064e3b"], 5: ["#1e3a8a", "#3b82f6", "#1e3a8a"],
@@ -62,7 +65,6 @@ function triggerShake(intensity) {
 }
 
 function updateWeather() {
-    // 1. STRONGER WIND (Starts LV 3)
     if (gameState.level >= 3) {
         if (Math.random() > 0.94) {
             const intensity = 0.08 + (gameState.level * 0.02); 
@@ -71,7 +73,6 @@ function updateWeather() {
         gameState.windForce += (gameState.windTarget - gameState.windForce) * 0.08;
     }
 
-    // 2. LIGHTNING (Starts LV 10)
     if (gameState.level >= 10 && Math.random() > 0.996) {
         gameState.flashAlpha = 0.8;
         gameState.windTarget = (Math.random() - 0.5) * (0.3 + gameState.level * 0.02);
@@ -79,7 +80,6 @@ function updateWeather() {
     }
     if (gameState.flashAlpha > 0) gameState.flashAlpha -= 0.04;
 
-    // 3. NEON RAIN (Starts LV 5)
     if (gameState.level >= 5) {
         if (gameState.rain.length < 100) {
             gameState.rain.push({ x: Math.random() * 800, y: -50, speed: 14 + Math.random() * 8, len: 20 });
@@ -87,7 +87,7 @@ function updateWeather() {
     }
     gameState.rain.forEach((r) => {
         r.y += r.speed;
-        r.x += gameState.windForce * 100; // Rain slants with wind
+        r.x += gameState.windForce * 100;
         if (r.y > 450) { r.y = -50; r.x = Math.random() * 800; }
     });
 }
@@ -148,6 +148,28 @@ function updatePhysics() {
         const gravity = 0.05 + (Math.min(gameState.level, 20) * 0.009); 
         const friction = 0.96;
 
+        // --- RING PENDULUM PHYSICS ---
+        const anchorX = 400; // The rope is attached to the ceiling at the center
+        const anchorY = 0;
+        const ropeLength = gameState.isDragging ? Math.hypot(gameState.mouseX - anchorX, gameState.mouseY - anchorY) : 220;
+
+        // Pull the ring toward the mouse/anchor
+        const dx = gameState.mouseX - gameState.ringX;
+        const dy = gameState.mouseY - gameState.ringY;
+        
+        // Tension and Swing
+        gameState.ringVX += dx * 0.05;
+        gameState.ringVY += dy * 0.05;
+        gameState.ringVX += gameState.windForce * 15; // Wind pushes the ring
+        gameState.ringVY += 0.5; // Gravity on the ring
+        
+        gameState.ringX += gameState.ringVX;
+        gameState.ringY += gameState.ringVY;
+        
+        gameState.ringVX *= 0.92; // Damping
+        gameState.ringVY *= 0.92;
+
+        // --- BOTTLE PHYSICS ---
         const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
         const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
 
@@ -155,7 +177,7 @@ function updatePhysics() {
 
         if (gameState.isHooked) {
             const dist = Math.hypot(gameState.ringX - capX, gameState.ringY - capY);
-            if (dist > 85) {
+            if (dist > 90) {
                 gameState.isHooked = false; 
                 playClink(0.1, 400);
             } else {
@@ -164,7 +186,6 @@ function updatePhysics() {
                 gameState.baseVelocity += (gameState.ringX - capX) * 0.04;
             }
         } else {
-            // Falls if not hooked and too tilted
             if (gameState.bottleAngle < 0) gameState.bottleAngle += gravity;
             if (gameState.bottleAngle < -0.65) { loseLife("BOTTLE TIPPED!"); return; } 
             
@@ -207,21 +228,19 @@ function drawGame() {
     ctx.rotate(gameState.bottleAngle);
     ctx.shadowBlur = 20; ctx.shadowColor = gameState.currentPalette[1];
     const grad = ctx.createLinearGradient(0, -42, 0, 0);
-    grad.addColorStop(0, gameState.currentPalette[0]); 
-    grad.addColorStop(0.5, gameState.currentPalette[1]); 
-    grad.addColorStop(1, gameState.currentPalette[2]);
+    grad.addColorStop(0, gameState.currentPalette[0]); grad.addColorStop(0.5, gameState.currentPalette[1]); grad.addColorStop(1, gameState.currentPalette[2]);
     ctx.fillStyle = grad;
     ctx.roundRect(0, -42, 130, 42, 8); ctx.fill();
     ctx.fillRect(130, -31, 40, 20);
     ctx.fillStyle = "#ff4444"; ctx.fillRect(170, -33, 10, 24);
     ctx.restore();
 
-    // Curved Rope
+    // Rope (Ceiling to Ring)
     ctx.strokeStyle = gameState.isHooked ? "#39ff14" : "#666"; 
     ctx.lineWidth = 2;
     ctx.beginPath(); 
-    ctx.moveTo(400, 0);
-    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 4000); 
+    ctx.moveTo(400, 0); // Anchored to ceiling
+    const controlX = (400 + gameState.ringX) / 2 + (gameState.windForce * 5000); 
     ctx.quadraticCurveTo(controlX, (0 + gameState.ringY) / 2, gameState.ringX, gameState.ringY);
     ctx.stroke();
 
@@ -238,20 +257,19 @@ function drawGame() {
         ctx.stroke();
     });
 
-    // Lightning Flash
+    // Lightning
     if (gameState.flashAlpha > 0) {
         ctx.fillStyle = `rgba(255, 255, 255, ${gameState.flashAlpha})`;
         ctx.fillRect(0, 0, 800, 450);
     }
 
-    // Confetti
     gameState.confetti.forEach(p => { 
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 5, 5); 
     });
     
     ctx.restore();
 
-    // Static UI
+    // Timer UI
     const prog = Math.max(0, gameState.timeLeft / gameState.maxTime);
     ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(780, 125, 8, 200);
     ctx.fillStyle = prog > 0.5 ? "#39ff14" : (prog > 0.25 ? "#ffeb3b" : "#ff4444");
@@ -273,7 +291,7 @@ function checkWin() {
     }
 }
 
-// Logic for level UI update
+// Sidebar/UI helpers
 function updateLevelSidebar() {
     const list = document.getElementById("levelList");
     if (!list) return;
@@ -298,6 +316,7 @@ function checkObjectives() {
 function resetRing() {
     gameState.isHooked = false; gameState.isDragging = false;
     gameState.ringX = 400; gameState.ringY = 150;
+    gameState.ringVX = 0; gameState.ringVY = 0;
 }
 
 // Controls
@@ -305,27 +324,28 @@ canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (800 / rect.width);
     const y = (e.clientY - rect.top) * (450 / rect.height);
-    if (Math.hypot(x - gameState.ringX, y - gameState.ringY) < 60) gameState.isDragging = true;
+    if (Math.hypot(x - gameState.ringX, y - gameState.ringY) < 60) {
+        gameState.isDragging = true;
+    }
 });
 
 window.addEventListener('mousemove', (e) => {
-    if (gameState.isDragging && !gameState.paused) {
-        const rect = canvas.getBoundingClientRect();
-        gameState.ringX = (e.clientX - rect.left) * (800 / rect.width);
-        gameState.ringY = (e.clientY - rect.top) * (450 / rect.height);
-        if (!gameState.isHooked) {
-            const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
-            const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
-            if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 30) {
-                gameState.isHooked = true; playClink(0.2);
-            }
+    const rect = canvas.getBoundingClientRect();
+    gameState.mouseX = (e.clientX - rect.left) * (800 / rect.width);
+    gameState.mouseY = (e.clientY - rect.top) * (450 / rect.height);
+    
+    if (gameState.isDragging && !gameState.paused && !gameState.isHooked) {
+        const capX = gameState.bottleBaseX + Math.cos(gameState.bottleAngle) * 170;
+        const capY = 350 + Math.sin(gameState.bottleAngle) * 170;
+        if (Math.hypot(gameState.ringX - capX, gameState.ringY - capY) < 30) {
+            gameState.isHooked = true; playClink(0.2);
         }
     }
 });
 
 window.addEventListener('mouseup', () => gameState.isDragging = false);
 
-// Button Listeners
+// UI Buttons
 document.getElementById("pauseBtn").onclick = () => { gameState.paused = true; document.getElementById("pauseOverlay").classList.remove("hidden"); };
 document.getElementById("resumeBtn").onclick = () => { initAudio(); gameState.paused = false; gameState.lastTime = performance.now(); document.getElementById("pauseOverlay").classList.add("hidden"); };
 document.getElementById("resetBtn").onclick = () => location.reload();
